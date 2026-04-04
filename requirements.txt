@@ -1,0 +1,11 @@
+streamlit==1.41.1
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+plotly==5.24.1
+openpyxl==3.1.5
+groq==0.13.0
+prophet==1.1.6
+statsforecast==1.7.8
+mlxtend==0.23.2
+xlrd==2.0.1
