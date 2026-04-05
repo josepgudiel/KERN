@@ -718,12 +718,15 @@ def _build_bundle_recs(df: pd.DataFrame, min_impact: float = 50.0, currency: str
         support_pct = round(pair["support"] * 100, 1)
         n_txns = len(df[(df["product"] == pair["antecedent"]) | (df["product"] == pair["consequent"])])
 
-        # Adoption math
-        attach_30pct = round(avg_weekly * 0.30, 0)
-        attach_25pct = round(avg_weekly * 0.25, 0)
+        # Adoption math — use actual Apriori confidence as expected attach rate
+        # Apriori confidence = P(B | A): if customer buys A, probability they also buy B.
+        # This IS the expected attach rate from observed co-purchase data.
+        apriori_attach = pair["confidence"]  # data-driven, not hardcoded
+        attach_expected = round(avg_weekly * apriori_attach, 0)
+        rollout_threshold = round(avg_weekly * max(apriori_attach * 0.75, 0.10), 0)
+        revert_threshold = round(avg_weekly * max(apriori_attach * 0.40, 0.05), 0)
         # Revenue upside: extra units of B at bundled price (90% of full price)
-        bundle_upside_weekly = round(attach_30pct * price_b * 0.90, 0)
-        rollout_threshold = round(avg_weekly * 0.25, 0)
+        bundle_upside_weekly = round(attach_expected * price_b * 0.90, 0)
 
         recs.append({
             "id": _rec_id("bundle", f"{pair['antecedent']}+{pair['consequent']}"),
@@ -738,14 +741,15 @@ def _build_bundle_recs(df: pd.DataFrame, min_impact: float = 50.0, currency: str
                 f"{pair['lift']:.1f}x more than you'd expect — the buying behavior is there. "
                 f"BUNDLE TEST: Price {pair['antecedent']} + {pair['consequent']} at {currency}{bundle_price:.2f} "
                 f"(saves {currency}{bundle_savings:.2f} vs buying separately) for 3 weeks. "
-                f"At 30% attach rate ({attach_30pct:.0f} bundles/week): +{currency}{bundle_upside_weekly:.0f}/week in {pair['consequent']} revenue. "
+                f"At expected {apriori_attach*100:.0f}% attach rate from your data ({attach_expected:.0f} bundles/week): "
+                f"+{currency}{bundle_upside_weekly:.0f}/week in {pair['consequent']} revenue. "
                 f"Roll out if >{rollout_threshold:.0f} bundles/week after 3 weeks. "
-                f"Revert to single-item pricing if <{round(avg_weekly * 0.15, 0):.0f} bundles/week — low downside."
+                f"Revert to single-item pricing if <{revert_threshold:.0f} bundles/week — low downside."
             ),
             "see_why": (
                 f"Co-purchased {pair['lift']:.1f}x more than chance ({support_pct}% of transactions). "
                 f"{pair['gap_transactions']} customers bought {pair['antecedent']} without {pair['consequent']}. "
-                f"Bundle at {currency}{bundle_price:.2f} (10% off combined). "
+                f"Apriori confidence: {apriori_attach*100:.0f}% — that's your expected attach rate from real data. "
                 f"Roll out threshold: >{rollout_threshold:.0f} bundles/week after 3 weeks."
             ),
             "confidence": "high" if pair["lift"] >= 3.0 and pair["confidence"] >= 0.5 else "moderate",

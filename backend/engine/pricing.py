@@ -127,6 +127,51 @@ def _estimate_product_elasticity(df: pd.DataFrame, product: str) -> tuple:
     return elasticity, low_95, high_95, note
 
 
+def _elasticity_to_raise_pct(elasticity: float | None) -> tuple[float, str]:
+    """Derive price increase % and label from elasticity magnitude.
+
+    Returns (pct_as_decimal, human_label).
+    Falls back to a conservative 3% when elasticity is unavailable.
+    """
+    if elasticity is None:
+        return 0.03, (
+            "3% (conservative starting point — not enough price variation in your data "
+            "to measure demand response; run a 2-week test before committing)"
+        )
+    e = abs(elasticity)
+    if e < 0.5:
+        return 0.08, f"8% — demand is very inelastic (elasticity {e:.2f}): customers barely react to price changes"
+    elif e < 0.7:
+        return 0.06, f"6% — demand is moderately inelastic (elasticity {e:.2f})"
+    elif e < 1.0:
+        return 0.04, f"4% — demand has moderate price sensitivity (elasticity {e:.2f}): test cautiously"
+    else:
+        return 0.02, f"2% — demand is price-sensitive (elasticity {e:.2f}): a small test only"
+
+
+def _elasticity_to_lower_pct(elasticity: float | None) -> tuple[float, str]:
+    """Derive price reduction % and label from elasticity magnitude.
+
+    Returns (pct_as_decimal, human_label).
+    For inelastic products a price cut won't help — returns 0.05 with a caveat.
+    """
+    if elasticity is None:
+        return 0.05, (
+            "5% (default — no elasticity data available; a price cut may not be the "
+            "right lever if customers aren't price-sensitive)"
+        )
+    e = abs(elasticity)
+    if e >= 1.2:
+        return 0.10, f"10% — demand is elastic (elasticity {e:.2f}): a meaningful cut is needed to move volume"
+    elif e >= 0.7:
+        return 0.05, f"5% — moderate elasticity (elasticity {e:.2f}): worth a small test"
+    else:
+        return 0.05, (
+            f"5% test only — demand is inelastic (elasticity {e:.2f}): "
+            "a price cut likely won't drive volume; investigate visibility or product-market fit first"
+        )
+
+
 def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
     """Per-product pricing suggestions — percentile-based."""
     has_cost = "cost" in df.columns and df["cost"].notna().any()
@@ -171,15 +216,16 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
         n_txn = int(row["transactions"])
 
         if qty >= qty_high_threshold and price <= price_low_threshold and n_txn >= MIN_TXN_FOR_RAISE:
-            sug = round(price * 1.05, 2)
             _e, _, _, _note = _estimate_product_elasticity(df, p)
             _e_used = _e if _e is not None else None
+            raise_pct, raise_pct_label = _elasticity_to_raise_pct(_e_used)
+            sug = round(price * (1 + raise_pct), 2)
 
             # Gate confidence on whether elasticity could be estimated
             _raise_confidence = "directional" if _e_used is not None else "insufficient"
 
             if _e_used is not None:
-                adj_qty = qty * (1 - _e_used * 0.05)
+                adj_qty = qty * (1 - _e_used * raise_pct)
                 rev_signal = f"estimated revenue change: {cur}{adj_qty * sug - qty * price:+,.0f} (based on how customers have responded to past price changes — test before acting)"
                 # Plain-language sensitivity label (never expose raw elasticity coefficient)
                 if _e_used > 1.5:
@@ -198,7 +244,8 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
             reason = (
                 f"High demand relative to your other products ({int(qty)} units, in the top third) "
                 f"with a below-average price (in the bottom third). A small price increase may be "
-                f"worth testing. Suggested starting point: {cur}{sug:.2f} (+5%). "
+                f"worth testing. Suggested starting point: {cur}{sug:.2f} (+{raise_pct*100:.0f}%). "
+                f"Why this %: {raise_pct_label}. "
                 f"Run for 2 weeks and monitor unit volume. {rev_signal}."
             )
             _margin_pct_val = None
@@ -226,11 +273,14 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
             })
 
         elif price >= price_high_threshold and qty <= qty_low_threshold and n_txn >= MIN_TXN_FOR_LOWER:
-            sug = round(price * 0.95, 2)
+            _e_lower, _, _, _ = _estimate_product_elasticity(df, p)
+            lower_pct, lower_pct_label = _elasticity_to_lower_pct(_e_lower)
+            sug = round(price * (1 - lower_pct), 2)
             reason = (
                 f"Priced in the top third of your products but selling in the bottom third "
                 f"({int(qty)} units). A modest price reduction may be worth testing to see "
-                f"if volume responds. Suggested: {cur}{sug:.2f} (−5%) for 2 weeks. "
+                f"if volume responds. Suggested: {cur}{sug:.2f} (−{lower_pct*100:.0f}%) for 2 weeks. "
+                f"Why this %: {lower_pct_label}. "
                 f"If volume doesn't improve meaningfully, the issue may be visibility or "
                 f"product-market fit rather than price. Do not reduce permanently without a test."
             )

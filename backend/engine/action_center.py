@@ -5,7 +5,8 @@ import pandas as pd
 
 from .safety import _has_dates
 from .insights import _detect_overview_insights, _find_rising_stars, _find_declining_products
-from .pricing import _get_price_recommendations
+from .pricing import _get_price_recommendations, _estimate_product_elasticity
+from .apriori import _compute_basket_rules
 
 
 def _strip_md(s: str) -> str:
@@ -53,6 +54,7 @@ def _prescribe_low_activity(
     price_lines = []
     total_recovery = 0.0
     valid_products = 0
+    inelastic_names = []
 
     for _, row in dead.iterrows():
         pname = row["product"]
@@ -70,36 +72,81 @@ def _prescribe_low_activity(
         if avg_price <= 0:
             continue
 
-        valid_products += 1
         monthly_qty = p_qty / months
         monthly_rev = p_rev / months
-        discount_price = avg_price * 0.80
 
-        new_qty = monthly_qty * (1 + 1.2 * 0.20)
+        # Derive discount % from elasticity — don't hardcode 20%
+        _e, _, _, _ = _estimate_product_elasticity(df, pname)
+        if _e is not None:
+            e_abs = abs(_e)
+            if e_abs >= 1.2:
+                discount_pct = 0.20  # 20% — very elastic: big cut needed to move volume
+                e_label = f"elasticity {_e:.2f} — highly elastic"
+            elif e_abs >= 0.8:
+                discount_pct = 0.15  # 15% — moderately elastic
+                e_label = f"elasticity {_e:.2f} — moderately elastic"
+            elif e_abs >= 0.5:
+                discount_pct = 0.10  # 10% — slightly elastic
+                e_label = f"elasticity {_e:.2f} — slightly elastic"
+            else:
+                # Inelastic: price cut won't help — skip discount rec for this product
+                inelastic_names.append(pname)
+                continue
+        else:
+            # No elasticity data — conservative 10% test with explicit caveat
+            discount_pct = 0.10
+            e_label = "no price variation data — 10% is a conservative starting test"
+
+        valid_products += 1
+        discount_price = round(avg_price * (1 - discount_pct), 2)
+
+        # Estimate demand response using elasticity (or 1.0 fallback when unavailable)
+        e_used = abs(_e) if _e is not None else 1.0
+        demand_uplift = e_used * discount_pct  # elasticity × price change
+        new_qty = monthly_qty * (1 + demand_uplift)
         recovery_rev = discount_price * new_qty
         incremental = max(recovery_rev - monthly_rev, 0.0)
         total_recovery += incremental
 
         price_lines.append(
-            f"{pname}: try {cur}{discount_price:.2f} (was {cur}{avg_price:.2f})"
+            f"{pname}: try {cur}{discount_price:.2f} (was {cur}{avg_price:.2f}, −{discount_pct*100:.0f}%)"
+            f" — {e_label}"
         )
 
     if valid_products == 0:
+        # All low-activity products are inelastic — don't recommend a blanket discount
+        if inelastic_names:
+            return {
+                "title": f"Slow items ({', '.join(inelastic_names[:3])}) are NOT price-sensitive",
+                "detail": (
+                    "Elasticity analysis shows these products don't respond much to price changes. "
+                    "A discount is unlikely to boost volume. Consider: improve visibility (move to "
+                    "better shelf/menu position), bundle with a top seller, or evaluate for removal."
+                ),
+                "impact_dollars": None,
+                "impact_label": "Price cuts won't help here",
+                "confidence": "directional",
+                "priority": 3,
+            }
         return None
 
     total_recovery = round(total_recovery)
     names = ", ".join(str(x) for x in dead["product"].tolist()[:3])
+    inelastic_note = (
+        f" ({', '.join(inelastic_names)} excluded — inelastic, price cuts won't help)"
+        if inelastic_names else ""
+    )
 
     return {
         "title": (
-            f"Consider discounting these {len(dead)} slow items — "
+            f"Consider discounting {valid_products} slow item(s) — "
             f"projected recovery: {cur}{total_recovery:,.0f}/month"
         ),
         "detail": (
-            "These products are generating almost no revenue at their current price. "
-            "A 20% discount could unlock dormant demand:\n"
+            "These products have low activity and elastic demand — a targeted discount "
+            "is estimated to boost volume enough to recover margin:\n"
             + "\n".join(price_lines)
-            + "\nRun for 2 weeks. If volume doesn't lift, consider removing them entirely."
+            + f"\nRun for 2 weeks. If volume doesn't lift, consider removing them entirely.{inelastic_note}"
         ),
         "impact_dollars": float(total_recovery),
         "impact_low": round(total_recovery * 0.5, 2),
@@ -207,6 +254,26 @@ def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$"
     quick_wins: list = []
     watch_outs: list = []
 
+    # Pre-compute basket rules once — used for data-driven bundle attach rates
+    try:
+        _, _basket_rules, _basket_err, _ = _compute_basket_rules(df)
+    except Exception:
+        _basket_rules = None
+
+    def _apriori_confidence(product_a: str, product_b: str) -> float | None:
+        """Return Apriori confidence for A→B from pre-computed basket rules, or None."""
+        if _basket_rules is None or _basket_rules.empty:
+            return None
+        mask = (
+            (_basket_rules["antecedent"] == product_a) & (_basket_rules["consequent"] == product_b)
+        ) | (
+            (_basket_rules["antecedent"] == product_b) & (_basket_rules["consequent"] == product_a)
+        )
+        matches = _basket_rules[mask]
+        if matches.empty:
+            return None
+        return float(matches["confidence"].max())
+
     # 1. Price raise opportunities
     has_cost = "cost" in df.columns and df["cost"].notna().any()
     gross_margin_fallback = 0.65
@@ -224,7 +291,8 @@ def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$"
             _price_confidence = rec.get("elasticity_confidence", "directional")
             _detail = (
                 f"Selling ~{int(mq)}/mo at {cur}{rec['current']:.2f} — demand is high, "
-                f"price is below your portfolio average. A 10% increase is unlikely to hurt volume. "
+                f"price is below your portfolio average. Suggested: {cur}{rec['suggested']:.2f} "
+                f"(+{(rec['suggested']/rec['current']-1)*100:.0f}%, derived from demand data). "
                 f"({margin_pct:.0%} margin on this product)"
                 if _price_confidence == "directional"
                 else
@@ -296,7 +364,20 @@ def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$"
             gem_cat  = str(gems.iloc[0]["category"])
             if star_cat != gem_cat and star_name != gem_name:
                 gem_price = float(gems.iloc[0]["revenue"]) / max(gem_qty, 1)
-                bundle_upside = gem_price * (float(stars.iloc[0]["quantity"]) * 0.10)
+                star_qty = float(stars.iloc[0]["quantity"])
+
+                # Use actual Apriori confidence as attach rate — fall back to 5% if no signal
+                apriori_conf = _apriori_confidence(star_name, gem_name)
+                if apriori_conf is not None:
+                    attach_rate = apriori_conf
+                    attach_label = f"{attach_rate*100:.0f}% (from your co-purchase data)"
+                    bundle_confidence = "directional"
+                else:
+                    attach_rate = 0.05
+                    attach_label = "5% (conservative estimate — no co-purchase signal found for this pair)"
+                    bundle_confidence = "insufficient"
+
+                bundle_upside = gem_price * (star_qty * attach_rate)
                 bundle_low  = round(bundle_upside * 0.6, 2)
                 bundle_high = round(bundle_upside * 1.4, 2)
                 quick_wins.append({
@@ -310,9 +391,9 @@ def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$"
                     "impact_dollars": round(bundle_upside, 2),
                     "impact_low": bundle_low,
                     "impact_high": bundle_high,
-                    "confidence": "directional",
-                    "impact_range": f"~{cur}{bundle_upside:,.0f}/month if 1 in 10 customers add it — test first",
-                    "impact_label": f"~{cur}{bundle_upside:,.0f}/month (estimated, 10% attach rate assumed)",
+                    "confidence": bundle_confidence,
+                    "impact_range": f"~{cur}{bundle_upside:,.0f}/month at {attach_label}",
+                    "impact_label": f"~{cur}{bundle_upside:,.0f}/month (attach rate: {attach_label})",
                     "n_transactions": int(prod_tx_counts.get(star_name, 0)),
                     "priority": 3,
                 })
