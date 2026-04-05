@@ -5,13 +5,13 @@ import datetime
 import io
 import json
 import os
-import pickle
 import uuid
 
 import numpy as np
 import pandas as pd
 import redis
 from dotenv import load_dotenv
+from session_utils import serialize_session, deserialize_session
 from fastapi import FastAPI, File, UploadFile, Query, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -88,27 +88,10 @@ class RedisSessionManager:
         return f"session:{session_id}"
 
     def _pack(self, data: dict) -> bytes:
-        payload = {}
-        for k, v in data.items():
-            if k in ("df", "raw_df", "product_clusters") and v is not None:
-                payload[k] = pickle.dumps(v)
-            elif k == "dismissed_recs" and isinstance(v, set):
-                payload[k] = json.dumps(list(v))
-            else:
-                payload[k] = v
-        return pickle.dumps(payload)
+        return serialize_session(data)
 
     def _unpack(self, raw: bytes) -> dict:
-        payload = pickle.loads(raw)
-        session = {}
-        for k, v in payload.items():
-            if k in ("df", "raw_df", "product_clusters") and isinstance(v, bytes):
-                session[k] = pickle.loads(v)
-            elif k == "dismissed_recs" and isinstance(v, str):
-                session[k] = set(json.loads(v))
-            else:
-                session[k] = v
-        return session
+        return deserialize_session(raw)
 
     def store_session(self, session_id: str, data: dict) -> None:
         self._client.setex(self._key(session_id), self._ttl, self._pack(data))
