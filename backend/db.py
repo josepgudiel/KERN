@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import create_engine, Column, String, Integer, DateTime, Boolean, Text, text
+from sqlalchemy import create_engine, Column, String, Integer, DateTime, Boolean, Text, Float, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 import logging
@@ -31,6 +31,10 @@ class Upload(Base):
     data_hash = Column(String(64), nullable=True)  # SHA-256 for deduplication
     uploaded_at = Column(DateTime, default=datetime.utcnow, index=True)
     expires_at = Column(DateTime, nullable=True)  # When session expires (2 hours later)
+    gross_margin = Column(Float, nullable=True)  # User-provided margin (0.65 = 65%)
+    margin_source = Column(String(20), default="estimated")  # "estimated" or "provided"
+    has_cost_data = Column(Boolean, default=False)  # CSV has cost column?
+    cost_column_name = Column(String(100), nullable=True)  # e.g., "cost", "cogs"
 
 
 class DBSession(Base):
@@ -55,6 +59,25 @@ class Dismissal(Base):
     rec_type = Column(String(50), nullable=True)  # e.g., "pricing", "bundle", "declining"
     dismissed_at = Column(DateTime, default=datetime.utcnow, index=True)
     reason = Column(Text, nullable=True)  # User feedback (if provided)
+
+
+# ─── Migrations ─────────────────────────────────────────────────────────────
+
+def _run_migrations(engine) -> None:
+    """Add new columns to existing tables without breaking existing deployments."""
+    migrations = [
+        "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS gross_margin FLOAT",
+        "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS margin_source VARCHAR(20) DEFAULT 'estimated'",
+        "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS has_cost_data BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS cost_column_name VARCHAR(100)",
+    ]
+    with engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+            except Exception as e:
+                logger.debug(f"Migration skipped (likely already applied): {e}")
+        conn.commit()
 
 
 # ─── Connection Pool ────────────────────────────────────────────────────────
@@ -89,6 +112,10 @@ def init_db():
 
         # Create tables
         Base.metadata.create_all(_engine)
+
+        # Idempotent migrations: add new columns if they don't exist
+        _run_migrations(_engine)
+
         _session_factory = sessionmaker(bind=_engine)
         _db_available = True
         logger.info("PostgreSQL connected and tables initialized.")

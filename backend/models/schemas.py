@@ -18,6 +18,10 @@ class UploadResponse(BaseModel):
     session_id: str
     filename: str | None = None
     warning: str | None = None
+    gross_margin: float = 0.65
+    margin_source: str = "estimated"  # "estimated" or "provided"
+    has_cost_data: bool = False
+    cost_column_name: str | None = None
 
 
 class MetricsBlock(BaseModel):
@@ -34,6 +38,30 @@ class HealthBrief(BaseModel):
     paragraph_2: str = ""
 
 
+class ProofKeyMetric(BaseModel):
+    name: str
+    value: float | None = None
+    interpretation: str | None = None
+
+
+class ProofDateRange(BaseModel):
+    start: str | None = None
+    end: str | None = None
+    display: str = ""
+
+
+class ProofConfidence(BaseModel):
+    tier: str  # "high" | "moderate" | "low"
+    color: str  # "green" | "amber" | "red"
+
+
+class Proof(BaseModel):
+    sample_size: int = 0
+    date_range: ProofDateRange = ProofDateRange()
+    key_metric: ProofKeyMetric = ProofKeyMetric(name="")
+    confidence: ProofConfidence = ProofConfidence(tier="moderate", color="amber")
+
+
 class Recommendation(BaseModel):
     id: str
     rec_type: str
@@ -48,6 +76,9 @@ class Recommendation(BaseModel):
     product_b: str | None = None
     generated_at: str
     impact_estimate: float | None = None
+    margin_pct: float | None = None      # Margin used in impact calculation
+    margin_source: str | None = None     # "estimated" or "provided"
+    proof: Proof | None = None
 
 
 class ActionCenterResponse(BaseModel):

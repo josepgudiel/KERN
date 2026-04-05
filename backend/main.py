@@ -187,7 +187,10 @@ def health():
 
 
 @app.post("/upload", response_model=UploadResponse)
-async def upload(file: UploadFile = File(...)):
+async def upload(
+    file: UploadFile = File(...),
+    margin: float | None = Query(None, description="Gross margin as decimal (0.40 = 40%). If omitted, defaults to 0.65."),
+):
     file_bytes = await file.read()
     file_name = file.filename or "upload.csv"
 
@@ -217,6 +220,22 @@ async def upload(file: UploadFile = File(...)):
 
     session_id = str(uuid.uuid4())
 
+    # Detect cost columns
+    _cost_keywords = ("cost", "cogs", "expense", "unit_cost", "cost_per_unit")
+    cost_cols = [c for c in df.columns if any(k in c.lower() for k in _cost_keywords)]
+    has_cost_data = len(cost_cols) > 0
+    cost_column_name = cost_cols[0] if cost_cols else None
+
+    # Resolve margin
+    if margin is not None:
+        if not (0.05 <= margin <= 0.99):
+            raise HTTPException(status_code=400, detail="Margin must be between 5% and 99% (e.g., 0.40 for 40%).")
+        gross_margin = margin
+        margin_source = "provided"
+    else:
+        gross_margin = 0.65
+        margin_source = "estimated"
+
     # Log upload to PostgreSQL for persistence + audit trail
     db_session = get_db_session()
     if db_session:
@@ -236,6 +255,10 @@ async def upload(file: UploadFile = File(...)):
                 has_dates=_has_dates(df),
                 data_hash=data_hash,
                 expires_at=pd.Timestamp.utcnow() + pd.Timedelta(hours=2),
+                gross_margin=gross_margin,
+                margin_source=margin_source,
+                has_cost_data=has_cost_data,
+                cost_column_name=cost_column_name,
             )
             db_session.add(upload_record)
             db_session.commit()
@@ -265,6 +288,10 @@ async def upload(file: UploadFile = File(...)):
         "df": df,
         "raw_cols": raw_df.columns.tolist(),
         "currency": currency,
+        "gross_margin": gross_margin,
+        "margin_source": margin_source,
+        "has_cost_data": has_cost_data,
+        "cost_column_name": cost_column_name,
         "uploaded_at": pd.Timestamp.now().isoformat(),
         "last_accessed": pd.Timestamp.now().isoformat(),
     })
@@ -289,6 +316,10 @@ async def upload(file: UploadFile = File(...)):
         session_id=session_id,
         filename=file_name,
         warning=warning,
+        gross_margin=gross_margin,
+        margin_source=margin_source,
+        has_cost_data=has_cost_data,
+        cost_column_name=cost_column_name,
     )
 
 
@@ -403,7 +434,9 @@ def action_center(session_id: str = Query(...)):
     health_brief = _generate_health_brief(df, product_clusters, currency=cur)
 
     # Rebuilt recommendation engine — statistical foundation
-    recommendations = build_recommendations(df, currency=cur)
+    margin = float(session.get("gross_margin", 0.65))
+    margin_source = session.get("margin_source", "estimated")
+    recommendations = build_recommendations(df, currency=cur, margin=margin, margin_source=margin_source)
 
     badge = _build_data_confidence_badge(df)
 

@@ -129,6 +129,24 @@ export default function RecommendationCard({
             >
               ~${rec.impact_estimate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo potential
             </span>
+            {rec.margin_pct != null && (
+              <span
+                style={{
+                  marginLeft: '6px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.55rem',
+                  color: rec.margin_source === 'provided' ? 'var(--positive)' : 'var(--text-muted)',
+                  letterSpacing: '0.04em',
+                }}
+                title={
+                  rec.margin_source === 'provided'
+                    ? `Profit impact using your ${Math.round(rec.margin_pct * 100)}% margin`
+                    : `Profit estimate using default 65% margin — enter your actual margin at upload for accuracy`
+                }
+              >
+                {rec.margin_source === 'provided' ? '✓' : '~'}{Math.round(rec.margin_pct * 100)}% margin
+              </span>
+            )}
           </div>
         )}
 
@@ -225,55 +243,216 @@ export default function RecommendationCard({
           </button>
         </div>
 
-        {/* See why toggle */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            padding: 0,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.62rem',
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            color: 'var(--accent)',
-            transition: 'opacity 0.15s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = '0.7'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '1'
-          }}
-        >
-          See why{' '}
-          <span
+        {/* Proof layer toggle */}
+        {rec.proof && (
+          <button
+            onClick={() => setExpanded(!expanded)}
             style={{
-              display: 'inline-block',
-              transition: 'transform 0.25s ease',
-              transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-              fontSize: '0.72rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: 0,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.62rem',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              color: 'var(--accent)',
+              transition: 'opacity 0.15s ease',
+              marginBottom: expanded ? '0' : undefined,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = '0.7'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = '1'
             }}
           >
-            &rarr;
-          </span>
-        </button>
+            {expanded ? '▼' : '▶'} Show data behind this ({rec.proof.sample_size.toLocaleString()} txns)
+          </button>
+        )}
 
-        {/* Expanded content — CSS max-height transition */}
+        {/* Expanded proof + see_why */}
         <div
           style={{
-            maxHeight: expanded ? '200px' : '0px',
+            maxHeight: expanded ? '500px' : '0px',
             overflow: 'hidden',
-            transition: 'max-height 0.3s ease',
+            transition: 'max-height 0.35s ease',
           }}
         >
+          {/* Proof data grid */}
+          {rec.proof && (
+            <div
+              style={{
+                marginTop: '10px',
+                padding: '14px 16px',
+                backgroundColor: 'var(--bg-surface, rgba(255,255,255,0.03))',
+                borderRadius: 'var(--radius, 6px)',
+                border: '1px solid var(--border)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '16px',
+              }}
+            >
+              {/* Sample size */}
+              <div style={{ minWidth: '100px' }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.55rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  Based on
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {rec.proof.sample_size.toLocaleString()} transactions
+                </div>
+              </div>
+
+              {/* Date range */}
+              <div style={{ minWidth: '100px' }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.55rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  Date range
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {rec.proof.date_range.display}
+                </div>
+              </div>
+
+              {/* Key metric */}
+              <div style={{ minWidth: '100px' }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.55rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  {rec.proof.key_metric.name}
+                </div>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  {rec.proof.key_metric.value != null
+                    ? rec.proof.key_metric.value.toFixed(2)
+                    : '—'}
+                  {rec.proof.key_metric.interpretation && (
+                    <span
+                      style={{
+                        marginLeft: '6px',
+                        fontFamily: 'var(--font-body)',
+                        fontSize: '0.72rem',
+                        fontWeight: 400,
+                        color: 'var(--text-muted)',
+                      }}
+                    >
+                      ({rec.proof.key_metric.interpretation})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Confidence */}
+              <div style={{ minWidth: '80px' }}>
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.55rem',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: 'var(--text-muted)',
+                    marginBottom: '3px',
+                  }}
+                >
+                  Confidence
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      backgroundColor:
+                        rec.proof.confidence.color === 'green'
+                          ? 'var(--positive)'
+                          : rec.proof.confidence.color === 'amber'
+                          ? 'var(--warning)'
+                          : 'var(--negative)',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-display)',
+                      fontSize: '0.85rem',
+                      fontWeight: 700,
+                      color:
+                        rec.proof.confidence.color === 'green'
+                          ? 'var(--positive)'
+                          : rec.proof.confidence.color === 'amber'
+                          ? 'var(--warning)'
+                          : 'var(--negative)',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {rec.proof.confidence.tier}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* See why text */}
           <div
             style={{
-              marginTop: '10px',
+              marginTop: '8px',
               padding: '12px 14px',
               backgroundColor: 'var(--bg-surface, rgba(255,255,255,0.03))',
               borderRadius: 'var(--radius, 6px)',
@@ -288,6 +467,72 @@ export default function RecommendationCard({
             {rec.see_why}
           </div>
         </div>
+
+        {/* Fallback: See why toggle if no proof */}
+        {!rec.proof && (
+          <>
+            <button
+              onClick={() => setExpanded(!expanded)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: 0,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.62rem',
+                fontWeight: 600,
+                letterSpacing: '0.06em',
+                color: 'var(--accent)',
+                transition: 'opacity 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '0.7'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '1'
+              }}
+            >
+              See why{' '}
+              <span
+                style={{
+                  display: 'inline-block',
+                  transition: 'transform 0.25s ease',
+                  transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                  fontSize: '0.72rem',
+                }}
+              >
+                &rarr;
+              </span>
+            </button>
+            <div
+              style={{
+                maxHeight: expanded ? '200px' : '0px',
+                overflow: 'hidden',
+                transition: 'max-height 0.3s ease',
+              }}
+            >
+              <div
+                style={{
+                  marginTop: '10px',
+                  padding: '12px 14px',
+                  backgroundColor: 'var(--bg-surface, rgba(255,255,255,0.03))',
+                  borderRadius: 'var(--radius, 6px)',
+                  border: '1px solid var(--border)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.76rem',
+                  color: 'var(--text-secondary)',
+                  lineHeight: 1.6,
+                  whiteSpace: 'pre-line',
+                }}
+              >
+                {rec.see_why}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

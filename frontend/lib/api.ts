@@ -24,10 +24,13 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function uploadFile(file: File): Promise<UploadResponse> {
+export async function uploadFile(file: File, margin?: number): Promise<UploadResponse> {
   const form = new FormData();
   form.append("file", file);
-  return request<UploadResponse>(`${BASE}/upload`, {
+  const url = margin != null
+    ? `${BASE}/upload?margin=${margin}`
+    : `${BASE}/upload`;
+  return request<UploadResponse>(url, {
     method: "POST",
     body: form,
   });

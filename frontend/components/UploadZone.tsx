@@ -26,6 +26,7 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
   const [progressIdx, setProgressIdx] = useState(0)
   const [success, setSuccess] = useState(false)
   const [warningMessage, setWarningMessage] = useState<string | null>(null)
+  const [marginPct, setMarginPct] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
   const { setSessionId, setUploadMeta } = useSession()
   const router = useRouter()
@@ -80,7 +81,8 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
     setError(null)
     setSuccess(false)
     try {
-      const res = await uploadFile(file)
+      const marginDecimal = marginPct !== '' ? parseFloat(marginPct) / 100 : undefined
+      const res = await uploadFile(file, marginDecimal)
       setSessionId(res.session_id)
       setUploadMeta(res)
 
@@ -193,6 +195,54 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
           >
             Try another file &rarr;
           </button>
+        </div>
+      )}
+
+      {file && !success && (
+        <div style={{
+          marginTop: '16px',
+          padding: '14px 16px',
+          borderRadius: '14px',
+          backgroundColor: 'var(--surface-warm)',
+          border: '1px solid var(--border-warm)',
+        }}>
+          <label style={{
+            display: 'block',
+            fontFamily: 'Raleway',
+            fontWeight: 600,
+            fontSize: '0.82rem',
+            color: 'var(--navy)',
+            marginBottom: '6px',
+          }}>
+            Your gross margin % <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional)</span>
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="number"
+              min="5"
+              max="99"
+              step="1"
+              placeholder="e.g. 65"
+              value={marginPct}
+              onChange={(e) => setMarginPct(e.target.value)}
+              disabled={loading}
+              style={{
+                width: '90px',
+                padding: '8px 10px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-warm)',
+                backgroundColor: 'var(--bg)',
+                fontFamily: 'Raleway',
+                fontSize: '0.88rem',
+                color: 'var(--navy)',
+                outline: 'none',
+              }}
+            />
+            <span style={{ fontFamily: 'Raleway', fontSize: '0.82rem', color: 'var(--text-muted)' }}>%</span>
+          </div>
+          <p style={{ fontFamily: 'Raleway', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>
+            Leave blank to use the 65% default — enter your actual margin for accurate dollar impacts.
+          </p>
         </div>
       )}
 

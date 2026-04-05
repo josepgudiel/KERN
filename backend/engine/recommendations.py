@@ -18,6 +18,7 @@ import pandas as pd
 
 from .safety import _has_dates
 from .apriori import _compute_basket_rules
+from .data_utils import get_product_date_range, build_proof
 
 logger = logging.getLogger(__name__)
 
@@ -1245,13 +1246,22 @@ def _get_apriori_partners(df: pd.DataFrame) -> dict[str, tuple[str, float]]:
 # ─── MAIN ENTRY POINT ───────────────────────────────────────────────────────
 
 
-def build_recommendations(df: pd.DataFrame, currency: str = "$") -> list[dict]:
+def build_recommendations(
+    df: pd.DataFrame,
+    currency: str = "$",
+    margin: float = 0.65,
+    margin_source: str = "estimated",
+) -> list[dict]:
     """Build all recommendations. Returns ranked list of max 5 dicts.
 
     Each dict has: id, rec_type, urgency_label, urgency_score, title, body,
     see_why, confidence, transaction_count, product, product_b (bundle only),
-    generated_at. Internal fields (_impact_estimate, _statistical_detail)
-    are stripped before returning.
+    generated_at, impact_estimate, margin_pct, margin_source.
+
+    Args:
+        margin: Gross margin as decimal (0.65 = 65%). Applied to non-pricing
+                impact estimates to convert revenue impact to profit impact.
+        margin_source: "estimated" or "provided" — shown on the UI.
     """
     all_recs: list[dict] = []
 
@@ -1297,17 +1307,153 @@ def build_recommendations(df: pd.DataFrame, currency: str = "$") -> list[dict]:
     deduped = deduplicate(all_recs)
     ranked = rank_and_cap(deduped, max_recs=5)
 
-    # Strip internal fields before returning
+    # Strip internal fields before returning. Apply margin to non-pricing impacts.
     public_fields = {
         "id", "rec_type", "urgency_label", "urgency_score", "title", "body",
         "see_why", "confidence", "transaction_count", "product", "product_b",
         "generated_at",
     }
+    # Pricing recs: a price increase is pure incremental revenue (costs unchanged),
+    # so the full revenue gain goes to profit — don't scale by margin.
+    PRICING_TYPES = {"pricing", "underpriced_rising"}
+
     result = []
     for rec in ranked:
         public_rec = {k: v for k, v in rec.items() if k in public_fields}
-        if rec.get("_impact_estimate") is not None:
-            public_rec["impact_estimate"] = rec["_impact_estimate"]
+        raw_impact = rec.get("_impact_estimate")
+        if raw_impact is not None:
+            if rec.get("rec_type") in PRICING_TYPES:
+                public_rec["impact_estimate"] = raw_impact  # pure revenue gain = pure profit
+                public_rec["margin_pct"] = None  # not applicable
+            else:
+                public_rec["impact_estimate"] = round(raw_impact * margin, 2)
+                public_rec["margin_pct"] = margin
+            public_rec["margin_source"] = margin_source
+
+        # Build proof layer from _statistical_detail + date range
+        public_rec["proof"] = _build_proof_for_rec(df, rec)
+
         result.append(public_rec)
 
     return result
+
+
+def _build_proof_for_rec(df: pd.DataFrame, rec: dict) -> dict:
+    """Build a proof dict for any rec type using its _statistical_detail."""
+    product = rec.get("product", "")
+    stats = rec.get("_statistical_detail", {})
+    rec_type = rec.get("rec_type", "")
+    confidence = rec.get("confidence", "moderate")
+    n_txns = rec.get("transaction_count", 0)
+
+    date_start, date_end = get_product_date_range(df, product)
+
+    # Map rec_type → key metric
+    if rec_type in ("pricing", "underpriced_rising"):
+        elasticity = stats.get("elasticity")
+        if elasticity is not None:
+            interpretation = (
+                "demand is inelastic"
+                if abs(elasticity) < 0.7
+                else "demand is moderately elastic"
+                if abs(elasticity) < 1.0
+                else "demand is elastic"
+            )
+            return build_proof(
+                sample_size=n_txns,
+                date_start=date_start,
+                date_end=date_end,
+                metric_name="Elasticity",
+                metric_value=elasticity,
+                metric_interpretation=interpretation,
+                confidence_tier=confidence,
+            )
+        # Path B (portfolio comparison) — no elasticity
+        return build_proof(
+            sample_size=n_txns,
+            date_start=date_start,
+            date_end=date_end,
+            metric_name="Price percentile",
+            metric_value=None,
+            metric_interpretation="priced below portfolio average",
+            confidence_tier=confidence,
+        )
+
+    if rec_type == "declining":
+        return build_proof(
+            sample_size=n_txns,
+            date_start=date_start,
+            date_end=date_end,
+            metric_name="Revenue decline",
+            metric_value=stats.get("pct_change"),
+            metric_interpretation=f"R² = {stats.get('r_squared', 0):.2f}",
+            confidence_tier=confidence,
+        )
+
+    if rec_type == "bundle":
+        # Use both products' date ranges
+        product_b = rec.get("product_b", "")
+        b_start, b_end = get_product_date_range(df, product_b) if product_b else (None, None)
+        # Use the wider range
+        if date_start and b_start:
+            combined_start = min(date_start, b_start)
+        else:
+            combined_start = date_start or b_start
+        if date_end and b_end:
+            combined_end = max(date_end, b_end)
+        else:
+            combined_end = date_end or b_end
+
+        return build_proof(
+            sample_size=n_txns,
+            date_start=combined_start,
+            date_end=combined_end,
+            metric_name="Lift",
+            metric_value=stats.get("lift"),
+            metric_interpretation=f"{stats.get('confidence', 0)*100:.0f}% attach rate",
+            confidence_tier=confidence,
+        )
+
+    if rec_type == "rising":
+        return build_proof(
+            sample_size=n_txns,
+            date_start=date_start,
+            date_end=date_end,
+            metric_name="Revenue growth",
+            metric_value=stats.get("pct_change"),
+            metric_interpretation=f"R² = {stats.get('r_squared', 0):.2f}",
+            confidence_tier=confidence,
+        )
+
+    if rec_type == "dead_product":
+        return build_proof(
+            sample_size=n_txns,
+            date_start=date_start,
+            date_end=date_end,
+            metric_name="Sales drop",
+            metric_value=stats.get("pct_drop"),
+            metric_interpretation=f"{stats.get('days_since_last_sale', '?')} days since last sale",
+            confidence_tier=confidence,
+        )
+
+    if rec_type == "dow_opportunity":
+        return build_proof(
+            sample_size=n_txns,
+            date_start=date_start,
+            date_end=date_end,
+            metric_name="Peak day multiplier",
+            metric_value=stats.get("multiplier"),
+            metric_interpretation=f"{stats.get('consistency_pct', 0):.0f}% consistent on {stats.get('peak_dow', 'peak day')}",
+            confidence_tier=confidence,
+        )
+
+    # Fallback
+    return build_proof(
+        sample_size=n_txns,
+        date_start=date_start,
+        date_end=date_end,
+        metric_name="Transactions",
+        metric_value=float(n_txns),
+        metric_interpretation=None,
+        confidence_tier=confidence,
+    )
