@@ -23,6 +23,11 @@ PRODUCT_CANDIDATES = [
     # Services / beauty / wellness
     "treatment", "treatment name", "treatment_name",
     "service name", "service_name", "service_type",
+    # Common Kaggle / generic dataset columns
+    "category", "product_category", "product category",
+    "sub_category", "sub category", "subcategory",
+    "product_line", "product line", "brand",
+    "product_group", "product group", "goods",
 ]
 QTY_CANDIDATES = [
     "quantity", "qty", "units", "pieces", "volume",
@@ -49,12 +54,17 @@ REVENUE_CANDIDATES = [
     # Clover, Lightspeed, and generic POS exports
     "total", "lineitem price", "line item price",
     "total incl tax", "total incl. tax", "total including tax",
+    # Common Kaggle / generic dataset columns
+    "sales", "amount", "order_amount", "order amount",
+    "turnover", "income", "proceeds", "value",
 ]
 UNIT_PRICE_CANDIDATES = [
     "unit_price", "unit price", "unitprice", "price_per_unit",
     "selling_price", "sale_price", "retail_price", "list_price", "price",
     "unit_rate", "each_price",
     "item_price", "item price",
+    # Common Kaggle columns
+    "mrp", "rate", "price_each", "price each",
 ]
 DATE_CANDIDATES = [
     "date", "timestamp", "datetime", "order_date", "transaction_date",
@@ -260,7 +270,8 @@ def _prepare_data_impl(raw_df: pd.DataFrame, mapping_override: dict | None = Non
 
     product_col = mapping.get("product")
     if not product_col or product_col not in raw_df.columns:
-        return None, "No product column detected."
+        cols_preview = ", ".join(list(raw_df.columns)[:8])
+        return None, f"No product column detected. Your columns: {cols_preview}. Rename one to 'product'."
 
     needed = {"product": raw_df[product_col].astype(str).str.strip().str.lower().str.replace(r"\s+", " ", regex=True)}
 
@@ -278,7 +289,8 @@ def _prepare_data_impl(raw_df: pd.DataFrame, mapping_override: dict | None = Non
         unit_price = _parse_numeric(raw_df[up_col]).fillna(0)
         needed["revenue"] = unit_price * needed["quantity"]
     else:
-        return None, "No revenue or unit price column detected."
+        cols_preview = ", ".join(list(raw_df.columns)[:8])
+        return None, f"No revenue or price column detected. Your columns: {cols_preview}. Rename one to 'revenue' or 'price'."
 
     _date_dayfirst_detected = False
     date_col = mapping.get("date")

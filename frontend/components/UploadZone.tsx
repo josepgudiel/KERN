@@ -102,8 +102,10 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       } else {
         router.push('/dashboard/action-center')
       }
-    } catch {
-      setError("Couldn't read this file. Make sure it has at least a product column and a revenue or quantity column.")
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ''
+      const detail = msg.match(/"detail"\s*:\s*"([^"]+)"/)?.[1]
+      setError(detail || "Couldn't read this file. Make sure it has at least a product column and a revenue or quantity column.")
       setLoading(false)
     }
   }
