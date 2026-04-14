@@ -1,4 +1,4 @@
-"""FastAPI backend for Analytic — all routes."""
+"""FastAPI backend for KERN — all routes."""
 from __future__ import annotations
 
 import datetime
@@ -55,7 +55,7 @@ from models.schemas import (
 
 # ─── App setup ──────────────────────────────────────────────────────────────
 
-app = FastAPI(title="Analytic API", version="1.0.0")
+app = FastAPI(title="KERN API", version="1.0.0")
 
 # Initialize PostgreSQL (graceful if unavailable)
 init_db()

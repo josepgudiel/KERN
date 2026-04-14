@@ -1,4 +1,4 @@
-# Deployment Guide — Analytic
+# Deployment Guide — KERN
 
 ## Environment Variables
 

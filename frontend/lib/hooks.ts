@@ -24,10 +24,10 @@ export function setCache(key: string, data: unknown): void {
   } catch { /* quota exceeded — ignore */ }
 }
 
-export function clearAnalyticCache(): void {
+export function clearKernCache(): void {
   const keys = Object.keys(sessionStorage)
   for (const key of keys) {
-    if (key.startsWith('analytic_cache_')) {
+    if (key.startsWith('kern_cache_')) {
       sessionStorage.removeItem(key)
     }
   }

@@ -22,7 +22,7 @@ export default function WhatsSellingPage() {
     [sessionId]
   )
 
-  const { data, loading, error, slow, retry } = usePageData<WhatsSelling>(fetchData, sessionId ? `analytic_cache_selling_${sessionId}` : undefined)
+  const { data, loading, error, slow, retry } = usePageData<WhatsSelling>(fetchData, sessionId ? `kern_cache_selling_${sessionId}` : undefined)
 
   return (
     <div>

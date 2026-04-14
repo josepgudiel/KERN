@@ -237,13 +237,39 @@ def _excel_sheet_names(file_bytes: bytes, file_name: str) -> list[str]:
         return []
 
 
+def _has_unnamed_columns(df: pd.DataFrame) -> bool:
+    """Check if most columns are 'Unnamed: N' — sign of a missing/offset header."""
+    unnamed = sum(1 for c in df.columns if str(c).startswith("Unnamed"))
+    return unnamed > len(df.columns) * 0.5
+
+
+def _try_fix_header(file_bytes: bytes, file_name: str, enc: str, sep: str) -> pd.DataFrame | None:
+    """If the first row isn't a real header, try skipping 1–5 rows to find it."""
+    for skip in range(1, 6):
+        try:
+            buf = io.BytesIO(file_bytes)
+            df_try = pd.read_csv(buf, encoding=enc, sep=sep, skiprows=skip)
+            if len(df_try.columns) >= 2 and not _has_unnamed_columns(df_try):
+                return df_try
+        except Exception:
+            continue
+    return None
+
+
 def _load_raw(file_bytes: bytes, file_name: str, sheet_name: str | None = None) -> pd.DataFrame | None:
     """Load raw file bytes into a DataFrame."""
     buf = io.BytesIO(file_bytes)
     name = (file_name or "").lower()
     try:
         if name.endswith(".xlsx"):
-            return pd.read_excel(buf, engine="openpyxl", sheet_name=sheet_name or 0)
+            df = pd.read_excel(buf, engine="openpyxl", sheet_name=sheet_name or 0)
+            if df is not None and _has_unnamed_columns(df):
+                for skip in range(1, 6):
+                    buf = io.BytesIO(file_bytes)
+                    df_try = pd.read_excel(buf, engine="openpyxl", sheet_name=sheet_name or 0, skiprows=skip)
+                    if not _has_unnamed_columns(df_try) and len(df_try.columns) >= 2:
+                        return df_try
+            return df
         if name.endswith(".xls"):
             try:
                 return pd.read_excel(buf, sheet_name=sheet_name or 0)
@@ -255,6 +281,10 @@ def _load_raw(file_bytes: bytes, file_name: str, sheet_name: str | None = None) 
                     buf.seek(0)
                     df_try = pd.read_csv(buf, encoding=enc, sep=sep)
                     if len(df_try.columns) >= 2:
+                        if _has_unnamed_columns(df_try):
+                            fixed = _try_fix_header(file_bytes, name, enc, sep)
+                            if fixed is not None:
+                                return fixed
                         return df_try
                 except Exception:
                     continue
@@ -376,7 +406,8 @@ def _prepare_data_impl(raw_df: pd.DataFrame, mapping_override: dict | None = Non
         if n_aggregate:
             parts.append(f"{n_aggregate} summary/aggregate rows were excluded.")
         if n_no_revenue:
-            parts.append(f"{n_no_revenue} rows had zero or negative revenue.")
+            rev_col_name = rev_col or up_col or "unknown"
+            parts.append(f"{n_no_revenue} rows had zero or negative revenue (column: '{rev_col_name}'). This column may not be actual revenue — check if it contains costs, discounts, or returns.")
         return None, " ".join(parts)
 
     warning_parts = []

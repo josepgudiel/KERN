@@ -1,10 +1,10 @@
-"""One-time database initialization script for Analytic."""
+"""One-time database initialization script for KERN."""
 import os
 import sys
 from db import init_db, is_db_available
 
 if __name__ == "__main__":
-    print("Initializing Analytic PostgreSQL database...")
+    print("Initializing KERN PostgreSQL database...")
 
     if not os.environ.get("DATABASE_URL"):
         print("DATABASE_URL not set. Export it and try again:")

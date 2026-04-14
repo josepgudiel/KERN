@@ -23,7 +23,7 @@ export default function ActionCenterPage() {
     [sessionId]
   )
 
-  const { data, loading, error, slow, retry } = usePageData<ActionCenterResponse>(fetchData, sessionId ? `analytic_cache_action_${sessionId}` : undefined)
+  const { data, loading, error, slow, retry } = usePageData<ActionCenterResponse>(fetchData, sessionId ? `kern_cache_action_${sessionId}` : undefined)
 
   // Fetch dismissed IDs from backend on mount
   useEffect(() => {

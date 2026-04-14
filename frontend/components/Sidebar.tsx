@@ -33,34 +33,61 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: 'var(--bg-card)',
         borderRight: '1px solid var(--border)',
       }}
     >
 
-      {/* Brand */}
+      {/* Brand — KERN N mark + wordmark */}
       <div style={{
         padding: '28px 20px 22px',
         borderBottom: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
       }}>
-        <div style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '1.1rem',
-          fontWeight: 700,
-          color: 'var(--text-primary)',
-          letterSpacing: '0.04em',
-          marginBottom: '3px',
-        }}>
-          Analytic
-        </div>
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.58rem',
-          color: 'var(--text-muted)',
-          letterSpacing: '0.10em',
-          textTransform: 'uppercase',
-        }}>
-          Business Intelligence
+        {/* N Mark SVG */}
+        <svg width="36" height="36" viewBox="0 0 100 100" fill="none" style={{ flexShrink: 0 }}>
+          {/* Main N body — filled, rounded terminals */}
+          <path
+            d="M14 88 L14 14 Q14 10 18 10 L26 10 Q30 10 32 14 L60 62 L60 14 Q60 10 64 10 L72 10 Q76 10 76 14 L76 88 Q76 92 72 92 L64 92 Q60 92 58 88 L30 40 L30 88 Q30 92 26 92 L18 92 Q14 92 14 88 Z"
+            fill="#f0f1f6"
+          />
+          {/* Right diagonal accent — sky blue overlay */}
+          <path
+            d="M60 62 L86 14 Q88 10 84 10 L76 10 Q72 10 70 14 L60 32 Z"
+            fill="#b3e5fe"
+            opacity="0.85"
+          />
+        </svg>
+
+        {/* Wordmark */}
+        <div>
+          <span style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 800,
+            fontSize: '18px',
+            letterSpacing: '0.22em',
+            color: 'var(--t1)',
+            textTransform: 'uppercase',
+            display: 'block',
+            lineHeight: 1,
+          }}>
+            KERN
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '8px',
+            letterSpacing: '0.26em',
+            color: 'var(--sky)',
+            opacity: 0.75,
+            textTransform: 'uppercase',
+            fontWeight: 500,
+            display: 'block',
+            marginTop: '3px',
+          }}>
+            by Analytic
+          </span>
         </div>
       </div>
 
@@ -71,21 +98,21 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           borderBottom: '1px solid var(--border)',
         }}>
           <div style={{
-            fontFamily: 'var(--font-body)',
+            fontFamily: 'var(--font-display)',
             fontSize: '0.60rem',
-            fontWeight: 500,
+            fontWeight: 800,
             textTransform: 'uppercase',
-            letterSpacing: '0.10em',
-            color: 'var(--text-muted)',
+            letterSpacing: '0.16em',
+            color: 'var(--t3)',
             marginBottom: '8px',
           }}>
             Active Dataset
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
-            fontWeight: 700,
+            fontWeight: 500,
             fontSize: '0.72rem',
-            color: 'var(--text-primary)',
+            color: 'var(--t1)',
             marginBottom: '3px',
           }}>
             {uploadMeta.rows.toLocaleString()} rows &middot; {uploadMeta.products.length} products
@@ -94,7 +121,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <div style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.60rem',
-              color: 'var(--text-muted)',
+              color: 'var(--t3)',
               letterSpacing: '0.02em',
             }}>
               {uploadMeta.date_range.min} → {uploadMeta.date_range.max}
@@ -105,15 +132,15 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               display: 'inline-block',
               marginTop: '8px',
               padding: '3px 8px',
-              backgroundColor: 'var(--accent-dim)',
-              border: '1px solid rgba(0,212,255,0.2)',
-              borderRadius: 'var(--radius)',
+              backgroundColor: 'var(--sky-10)',
+              border: '1px solid var(--sky-20)',
+              borderRadius: '4px',
               fontFamily: 'var(--font-mono)',
-              fontWeight: 700,
+              fontWeight: 500,
               fontSize: '0.52rem',
               letterSpacing: '0.12em',
               textTransform: 'uppercase',
-              color: 'var(--accent)',
+              color: 'var(--sky)',
             }}>
               Demo
             </span>
@@ -127,17 +154,17 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           margin: '10px 12px 0',
           padding: '10px 12px',
           backgroundColor: 'var(--warning-dim)',
-          border: '1px solid rgba(245,158,11,0.20)',
-          borderLeft: '3px solid var(--warning)',
+          border: '1px solid rgba(251,191,36,0.20)',
+          borderLeft: '3px solid var(--amber)',
           borderRadius: 'var(--radius-card)',
         }}>
           <div style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.56rem',
-            fontWeight: 700,
+            fontWeight: 500,
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
-            color: 'var(--warning)',
+            color: 'var(--amber)',
             marginBottom: '3px',
           }}>
             Stale Data
@@ -145,7 +172,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           <div style={{
             fontFamily: 'var(--font-body)',
             fontSize: '0.68rem',
-            color: 'var(--text-secondary)',
+            color: 'var(--t2)',
           }}>
             Most recent data is {daysStale} days old
           </div>
@@ -167,13 +194,13 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 padding: '9px 12px',
                 borderRadius: 'var(--radius-card)',
                 textDecoration: 'none',
-                backgroundColor: active ? 'var(--bg-elevated)' : 'transparent',
-                borderLeft: active ? '3px solid var(--accent)' : '3px solid transparent',
+                backgroundColor: active ? 'var(--sky-10)' : 'transparent',
+                borderLeft: active ? '2px solid var(--sky)' : '2px solid transparent',
                 paddingLeft: '12px',
                 transition: 'background-color 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'
+                if (!active) e.currentTarget.style.backgroundColor = 'var(--sky-06)'
               }}
               onMouseLeave={(e) => {
                 if (!active) e.currentTarget.style.backgroundColor = 'transparent'
@@ -183,7 +210,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 fontFamily: 'var(--font-body)',
                 fontWeight: active ? 600 : 400,
                 fontSize: '0.80rem',
-                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                color: active ? 'var(--sky)' : 'var(--t2)',
                 letterSpacing: '0.01em',
                 lineHeight: 1.3,
               }}>
@@ -192,9 +219,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               <div style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.62rem',
-                color: active ? 'var(--accent)' : 'var(--text-muted)',
+                color: active ? 'var(--sky)' : 'var(--t3)',
                 marginTop: '1px',
-                opacity: active ? 0.8 : 0.6,
+                opacity: active ? 0.6 : 0.6,
               }}>
                 {item.sub}
               </div>
@@ -221,18 +248,18 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             fontSize: '0.62rem',
             letterSpacing: '0.10em',
             textTransform: 'uppercase',
-            color: 'var(--text-muted)',
+            color: 'var(--t3)',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border-strong)'
-            e.currentTarget.style.color = 'var(--text-secondary)'
-            e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'
+            e.currentTarget.style.borderColor = 'var(--border2)'
+            e.currentTarget.style.color = 'var(--t2)'
+            e.currentTarget.style.backgroundColor = 'var(--sky-06)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = 'var(--border)'
-            e.currentTarget.style.color = 'var(--text-muted)'
+            e.currentTarget.style.color = 'var(--t3)'
             e.currentTarget.style.backgroundColor = 'transparent'
           }}
         >

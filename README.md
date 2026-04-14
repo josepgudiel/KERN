@@ -1,12 +1,12 @@
-# Analytic — Business Intelligence for Small Business Owners
+# KERN — Business Intelligence for Small Business Owners
 
-Analytic turns your raw sales data into clear, actionable business decisions — no data science team required. Upload a CSV or Excel export from any POS system (Square, Shopify, Toast, Clover, and more) and instantly see what's selling, what's declining, when to staff up, where to raise prices, and what products to bundle. Built for independent small business owners who have data but no time to analyze it.
+KERN turns your raw sales data into clear, actionable business decisions — no data science team required. Upload a CSV or Excel export from any POS system (Square, Shopify, Toast, Clover, and more) and instantly see what's selling, what's declining, when to staff up, where to raise prices, and what products to bundle. Built for independent small business owners who have data but no time to analyze it.
 
 ---
 
 ## What Changed from BrewSmart
 
-BrewSmart started as a coffee-shop-specific tool built at Hack@URI 2026. Analytic is the evolution: the same intelligence engine, now generalized for **any small business** — retail, food service, e-commerce, or service businesses. The coffee branding is gone; the analytical depth is not.
+BrewSmart started as a coffee-shop-specific tool built at Hack@URI 2026. KERN is the evolution: the same intelligence engine, now generalized for **any small business** — retail, food service, e-commerce, or service businesses. The coffee branding is gone; the analytical depth is not.
 
 ---
 
@@ -55,7 +55,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step instructions covering Stream
 
 ## Data Format
 
-Analytic works with **any** CSV or Excel export from any POS system. Columns are auto-detected using broad candidate lists covering 10+ major POS formats (Square, Shopify, Toast, Lightspeed, Clover, Revel, TouchBistro, Aloha, NCR, Heartland, iZettle).
+KERN works with **any** CSV or Excel export from any POS system. Columns are auto-detected using broad candidate lists covering 10+ major POS formats (Square, Shopify, Toast, Lightspeed, Clover, Revel, TouchBistro, Aloha, NCR, Heartland, iZettle).
 
 **Minimum required columns:** product name + revenue (or unit price)
 
@@ -105,4 +105,4 @@ Python · Streamlit · pandas · NumPy · scikit-learn · Plotly · statsforecas
 
 ---
 
-*Built at Hack@URI 2026 — evolved from BrewSmart to Analytic*
+*Built at Hack@URI 2026 — evolved from BrewSmart to KERN*

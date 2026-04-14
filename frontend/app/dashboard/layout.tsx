@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isMoreActive = NAV_MORE.some(item => pathname === item.href)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg-base)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {/* Mobile top nav with hamburger */}
       <MobileNav
         isSidebarOpen={sidebarOpen}
@@ -83,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         left: 0,
         right: 0,
         zIndex: 50,
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: 'var(--bg-card)',
         borderTop: '1px solid var(--border)',
         padding: '8px 0 env(safe-area-inset-bottom, 8px)',
       }} className="mobile-bottom-nav">
@@ -105,17 +105,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               cursor: 'pointer',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.56rem',
-              fontWeight: pathname === item.href ? 700 : 400,
+              fontWeight: pathname === item.href ? 500 : 400,
               letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: pathname === item.href ? 'var(--accent)' : 'var(--text-muted)',
+              color: pathname === item.href ? 'var(--sky)' : 'var(--t3)',
             }}
           >
             <div style={{
               width: '4px',
               height: '4px',
               borderRadius: '50%',
-              backgroundColor: pathname === item.href ? 'var(--accent)' : 'transparent',
+              backgroundColor: pathname === item.href ? 'var(--sky)' : 'transparent',
               marginBottom: '2px',
             }} />
             {item.label}
@@ -139,17 +139,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             cursor: 'pointer',
             fontFamily: 'var(--font-mono)',
             fontSize: '0.56rem',
-            fontWeight: (isMoreActive || drawerOpen) ? 700 : 400,
+            fontWeight: (isMoreActive || drawerOpen) ? 500 : 400,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
-            color: (isMoreActive || drawerOpen) ? 'var(--accent)' : 'var(--text-muted)',
+            color: (isMoreActive || drawerOpen) ? 'var(--sky)' : 'var(--t3)',
           }}
         >
           <div style={{
             width: '4px',
             height: '4px',
             borderRadius: '50%',
-            backgroundColor: (isMoreActive || drawerOpen) ? 'var(--accent)' : 'transparent',
+            backgroundColor: (isMoreActive || drawerOpen) ? 'var(--sky)' : 'transparent',
             marginBottom: '2px',
           }} />
           More
@@ -179,7 +179,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           left: 0,
           right: 0,
           zIndex: 50,
-          backgroundColor: 'var(--bg-surface)',
+          backgroundColor: 'var(--bg-card)',
           borderTop: '1px solid var(--border)',
           borderRadius: '16px 16px 0 0',
           padding: '8px 0',
@@ -204,7 +204,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               fontFamily: 'var(--font-body)',
               fontSize: '0.92rem',
               fontWeight: pathname === item.href ? 600 : 400,
-              color: pathname === item.href ? 'var(--accent)' : 'var(--text-primary)',
+              color: pathname === item.href ? 'var(--sky)' : 'var(--t1)',
               textAlign: 'left',
             }}
           >
@@ -214,7 +214,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                backgroundColor: 'var(--accent)',
+                backgroundColor: 'var(--sky)',
                 marginLeft: 'auto',
               }} />
             )}
@@ -237,7 +237,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               backgroundColor: '#fffbeb',
               border: '1px solid #fde68a',
               borderLeft: '4px solid #d97706',
-              borderRadius: '14px',
+              borderRadius: 'var(--radius-card)',
               padding: '14px 18px',
               marginBottom: '28px',
             }}>

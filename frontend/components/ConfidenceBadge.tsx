@@ -1,8 +1,8 @@
 const CONFIG = {
-  high:         { color: 'var(--positive)',  bg: 'var(--positive-dim)',  label: 'Strong Signal' },
-  moderate:     { color: 'var(--warning)',   bg: 'var(--warning-dim)',   label: 'Worth Testing' },
-  directional:  { color: 'var(--warning)',   bg: 'var(--warning-dim)',   label: 'Worth Testing' },
-  insufficient: { color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.05)', label: 'Need More Data' },
+  high:         { color: 'var(--green)',  bg: 'var(--positive-dim)',  label: 'Strong Signal' },
+  moderate:     { color: 'var(--amber)',  bg: 'var(--warning-dim)',   label: 'Worth Testing' },
+  directional:  { color: 'var(--amber)',  bg: 'var(--warning-dim)',   label: 'Worth Testing' },
+  insufficient: { color: 'var(--t3)',     bg: 'var(--sky-06)',        label: 'Need More Data' },
 } as const
 
 export default function ConfidenceBadge({
@@ -18,13 +18,14 @@ export default function ConfidenceBadge({
       display: 'inline-flex',
       alignItems: 'center',
       gap: '5px',
-      padding: '3px 8px',
-      borderRadius: 'var(--radius)',
-      backgroundColor: cfg.bg,
+      padding: '2px 8px',
+      borderRadius: '4px',
+      backgroundColor: 'rgba(179,229,254,0.04)',
+      border: '1px solid var(--border)',
       color: cfg.color,
       fontFamily: 'var(--font-mono)',
-      fontWeight: 700,
-      fontSize: '0.54rem',
+      fontWeight: 500,
+      fontSize: '9px',
       letterSpacing: '0.10em',
       textTransform: 'uppercase',
       flexShrink: 0,

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { UploadResponse } from "@/types";
-import { clearAnalyticCache } from "@/lib/hooks";
+import { clearKernCache } from "@/lib/hooks";
 
 export interface BusinessProfile {
   business_name: string;
@@ -32,13 +32,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem("analytic_session_id");
+    const stored = sessionStorage.getItem("kern_session_id");
     if (stored) setSessionIdState(stored);
-    const storedMeta = sessionStorage.getItem("analytic_upload_meta");
+    const storedMeta = sessionStorage.getItem("kern_upload_meta");
     if (storedMeta) {
       try { setUploadMeta(JSON.parse(storedMeta)); } catch { /* ignore */ }
     }
-    const storedProfile = localStorage.getItem("analytic_business_profile");
+    const storedProfile = localStorage.getItem("kern_business_profile");
     if (storedProfile) {
       try { setBusinessProfileState(JSON.parse(storedProfile)); } catch { /* ignore */ }
     }
@@ -47,25 +47,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const setSessionId = useCallback((id: string) => {
     setSessionIdState(id);
-    sessionStorage.setItem("analytic_session_id", id);
-    clearAnalyticCache();
+    sessionStorage.setItem("kern_session_id", id);
+    clearKernCache();
   }, []);
 
   const setUploadMetaWrapped = useCallback((meta: UploadResponse) => {
     setUploadMeta(meta);
-    sessionStorage.setItem("analytic_upload_meta", JSON.stringify(meta));
+    sessionStorage.setItem("kern_upload_meta", JSON.stringify(meta));
   }, []);
 
   const setBusinessProfile = useCallback((profile: BusinessProfile) => {
     setBusinessProfileState(profile);
-    localStorage.setItem("analytic_business_profile", JSON.stringify(profile));
+    localStorage.setItem("kern_business_profile", JSON.stringify(profile));
   }, []);
 
   const clearSession = useCallback(() => {
     setSessionIdState(null);
     setUploadMeta(null);
-    sessionStorage.removeItem("analytic_session_id");
-    sessionStorage.removeItem("analytic_upload_meta");
+    sessionStorage.removeItem("kern_session_id");
+    sessionStorage.removeItem("kern_upload_meta");
   }, []);
 
   const daysStale = useMemo(() => {

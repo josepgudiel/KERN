@@ -21,13 +21,13 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavProps) {
   const pathname = usePathname()
-  const pageTitle = PAGE_TITLES[pathname] || 'Analytic'
+  const pageTitle = PAGE_TITLES[pathname] || 'KERN'
 
   return (
     <nav
       className="mobile-top-nav"
       style={{
-        display: 'none', // shown via CSS on mobile
+        display: 'none',
         position: 'fixed',
         top: 0,
         left: 0,
@@ -37,7 +37,7 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
         alignItems: 'center',
         padding: '0 16px',
         gap: '12px',
-        backgroundColor: 'var(--bg-surface)',
+        backgroundColor: 'var(--bg-card)',
         borderBottom: '1px solid var(--border)',
         boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
       }}
@@ -53,11 +53,11 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
           width: '40px',
           height: '40px',
           flexShrink: 0,
-          background: isSidebarOpen ? 'var(--accent-dim)' : 'var(--bg-elevated)',
-          border: `1px solid ${isSidebarOpen ? 'rgba(0,212,255,0.25)' : 'var(--border)'}`,
-          borderRadius: 'var(--radius-card)',
+          background: isSidebarOpen ? 'var(--sky-10)' : 'var(--bg-mid)',
+          border: `1px solid ${isSidebarOpen ? 'var(--sky-20)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius)',
           cursor: 'pointer',
-          color: isSidebarOpen ? 'var(--accent)' : 'var(--text-secondary)',
+          color: isSidebarOpen ? 'var(--sky)' : 'var(--t2)',
           transition: 'all 0.15s ease',
         }}
       >
@@ -76,11 +76,12 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
       <div style={{
         flex: 1,
         textAlign: 'center',
-        fontFamily: 'var(--font-body)',
-        fontWeight: 600,
+        fontFamily: 'var(--font-display)',
+        fontWeight: 800,
         fontSize: '0.82rem',
-        color: 'var(--text-primary)',
-        letterSpacing: '0.02em',
+        color: 'var(--t1)',
+        letterSpacing: '0.16em',
+        textTransform: 'uppercase',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',

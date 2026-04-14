@@ -160,13 +160,13 @@ export default function LandingPage() {
               textTransform: 'uppercase',
             }}
           >
-            Analytic
+            KERN
           </span>
           <span
             className="label-caps"
             style={{ color: 'var(--text-muted)', fontSize: '0.55rem' }}
           >
-            Sales Analytics
+            Business Intelligence
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -203,7 +203,7 @@ export default function LandingPage() {
         <div className="fade-up">
           <div className="section-eyebrow">
             <span className="label-caps" style={{ color: 'var(--accent)' }}>
-              Sales Analytics
+              Business Intelligence
             </span>
           </div>
 
@@ -835,7 +835,7 @@ export default function LandingPage() {
           className="label-caps"
           style={{ color: 'var(--text-muted)', fontSize: '0.55rem' }}
         >
-          Analytic &mdash; Sales Analytics
+          KERN &mdash; Business Intelligence
         </span>
         <a href="#upload" className="btn-primary" style={{ fontSize: '0.55rem', padding: '6px 16px' }}>
           Upload your sales file &mdash; it&apos;s free

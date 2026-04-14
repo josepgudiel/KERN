@@ -1,4 +1,4 @@
-# Analytic — FastAPI Backend
+# KERN — FastAPI Backend
 
 ## Setup
 

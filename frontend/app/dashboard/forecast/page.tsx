@@ -39,7 +39,7 @@ export default function ForecastPage() {
     [sessionId]
   )
 
-  const { data, loading, error, slow, retry } = usePageData<ForecastResponse>(fetchData, sessionId ? `analytic_cache_forecast_${sessionId}` : undefined)
+  const { data, loading, error, slow, retry } = usePageData<ForecastResponse>(fetchData, sessionId ? `kern_cache_forecast_${sessionId}` : undefined)
 
   function formatDate(d: string) {
     const date = new Date(d)

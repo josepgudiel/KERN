@@ -1,4 +1,4 @@
-"""SQLAlchemy database models and connection for Analytic."""
+"""SQLAlchemy database models and connection for KERN."""
 from __future__ import annotations
 
 import os
