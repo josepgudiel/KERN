@@ -121,7 +121,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             <div style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '0.60rem',
-              color: 'var(--t3)',
+              color: 'var(--t2)',
               letterSpacing: '0.02em',
             }}>
               {uploadMeta.date_range.min} → {uploadMeta.date_range.max}

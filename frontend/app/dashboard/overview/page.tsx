@@ -55,10 +55,10 @@ export default function OverviewPage() {
       <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
           <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--accent)' }}>Performance</span>
+          <span className="label-caps" style={{ color: 'var(--t3)' }}>Performance</span>
         </div>
         <h1 style={{ color: 'var(--navy)', marginBottom: '14px' }}>Summary</h1>
-        <p style={{ fontFamily: 'Raleway', fontSize: '0.92rem', color: 'var(--text-muted)', maxWidth: '500px', lineHeight: 1.75 }}>
+        <p style={{ fontFamily: 'Raleway', fontSize: '0.92rem', color: 'var(--t2)', maxWidth: '500px', lineHeight: 1.75 }}>
           Last 30 days vs prior 30 days, plus unusual sales days.
         </p>
         <div className="divider" style={{ marginTop: '24px' }} />
@@ -104,8 +104,8 @@ export default function OverviewPage() {
       {/* Period comparison metrics */}
       {data?.period_comparison ? (
         <section style={{ marginBottom: '40px' }}>
-          <h3 style={{ color: 'var(--accent)', marginBottom: '6px' }}>Period Comparison</h3>
-          <p style={{ fontFamily: 'Raleway', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+          <h3 style={{ color: 'var(--t3)', marginBottom: '6px' }}>Period Comparison</h3>
+          <p style={{ fontFamily: 'Raleway', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '20px' }}>
             {data.period_comparison!.label_b} ({fmtRev(data.period_comparison!.rev_b)}) vs {data.period_comparison!.label_a} ({fmtRev(data.period_comparison!.rev_a)})
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -172,7 +172,7 @@ export default function OverviewPage() {
           borderRadius: '20px', padding: '24px', marginBottom: '40px',
           boxShadow: 'var(--shadow-sm)',
         }}>
-          <p style={{ fontFamily: 'Raleway', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          <p style={{ fontFamily: 'Raleway', fontSize: '0.85rem', color: 'var(--t2)' }}>
             {data.warning ?? 'Need at least 60 days of data for period comparison.'}
           </p>
         </div>
@@ -181,8 +181,8 @@ export default function OverviewPage() {
       {/* Anomalies */}
       {data && (
         <section>
-          <h3 style={{ color: 'var(--accent)', marginBottom: '6px' }}>Unusual Days</h3>
-          <p style={{ fontFamily: 'Raleway', fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+          <h3 style={{ color: 'var(--t3)', marginBottom: '6px' }}>Unusual Days</h3>
+          <p style={{ fontFamily: 'Raleway', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '20px' }}>
             Days where revenue was unusually high or low.
           </p>
 
@@ -192,7 +192,7 @@ export default function OverviewPage() {
               borderRadius: '20px', padding: '32px', textAlign: 'center',
               boxShadow: 'var(--shadow-sm)',
             }}>
-              <p style={{ fontFamily: 'Raleway', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              <p style={{ fontFamily: 'Raleway', color: 'var(--t2)', fontSize: '0.85rem' }}>
                 No unusual days detected — your revenue is consistent.
               </p>
             </div>
@@ -215,12 +215,12 @@ export default function OverviewPage() {
                   >
                     <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{isSpike ? '📈' : '📉'}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'Raleway', fontWeight: 700, fontSize: '0.85rem', color: 'var(--navy)', marginBottom: '2px' }}>
+                      <div style={{ fontFamily: 'Raleway', fontWeight: 700, fontSize: '0.85rem', color: 'var(--t2)', marginBottom: '2px' }}>
                         {a.date_label || a.date}
-                        {a.auto_label && <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '8px', fontSize: '0.78rem' }}>· {a.auto_label}</span>}
+                        {a.auto_label && <span style={{ fontWeight: 400, color: 'var(--t2)', marginLeft: '8px', fontSize: '0.78rem' }}>· {a.auto_label}</span>}
                       </div>
                       {a.top_product && (
-                        <div style={{ fontFamily: 'Raleway', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        <div style={{ fontFamily: 'Raleway', fontSize: '0.75rem', color: 'var(--t2)' }}>
                           Top: {a.top_product}
                         </div>
                       )}
@@ -229,7 +229,7 @@ export default function OverviewPage() {
                       <div style={{ fontFamily: 'Cormorant, serif', fontSize: '1.3rem', fontWeight: 500, color }}>
                         {currency}{a.revenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </div>
-                      <div style={{ fontFamily: 'Raleway', fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                      <div style={{ fontFamily: 'Raleway', fontSize: '0.68rem', color: 'var(--t2)', marginTop: '1px' }}>
                         {a.pct_above > 0 ? '+' : ''}{Math.abs(a.pct_above).toFixed(0)}% vs typical
                       </div>
                     </div>
@@ -261,7 +261,7 @@ export default function OverviewPage() {
         }}>
           <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📊</div>
           <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>No data available</div>
-          <p style={{ fontFamily: 'Raleway', color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.65 }}>
+          <p style={{ fontFamily: 'Raleway', color: 'var(--t2)', fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.65 }}>
             Upload a file with at least 30 days of sales history to unlock the Overview.
           </p>
         </div>

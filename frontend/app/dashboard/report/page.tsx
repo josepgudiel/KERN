@@ -113,7 +113,7 @@ export default function ReportPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
             <div>
               <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '4px' }}>Period</div>
-              <div style={{ fontFamily: 'Raleway', fontWeight: 600, fontSize: '0.92rem', color: 'var(--navy)' }}>
+              <div style={{ fontFamily: 'Raleway', fontWeight: 600, fontSize: '0.92rem', color: 'var(--t2)' }}>
                 {data.period_label}
               </div>
             </div>
