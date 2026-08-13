@@ -5,6 +5,7 @@ import { useSession } from '@/context/SessionContext'
 import AdvisorChat from '@/components/AdvisorChat'
 import { getDataSummary } from '@/lib/api'
 import type { DataSummaryResponse } from '@/types'
+import { PageHeader } from '@/components/ui'
 
 export default function AIAdvisorPage() {
   const { sessionId, businessProfile } = useSession()
@@ -24,35 +25,12 @@ export default function AIAdvisorPage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          marginBottom: '12px',
-        }}>
-          <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--accent)' }}>
-            Your Data
-          </span>
-        </div>
-        <h1 style={{ color: 'var(--text-primary)', marginBottom: '14px' }}>
-          Business Advisor
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.92rem',
-          color: 'var(--text-secondary)',
-          maxWidth: '500px',
-          lineHeight: 1.75,
-        }}>
-          Ask anything about your business. Your advisor knows your numbers.
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="Business Advisor"
+        context="Ask a question in plain English. The answers come from the file you uploaded."
+      />
 
-      <div className="fade-up advisor-layout" style={{ display: 'flex', gap: '24px', height: 'calc(100vh - 300px)', minHeight: '400px' }}>
+      <div className="fade-up advisor-layout" style={{ display: 'flex', gap: '20px', height: 'calc(100vh - 190px)', minHeight: '400px' }}>
         {/* Left: Your data panel */}
         <div className="advisor-profile-panel" style={{ width: '35%', flexShrink: 0 }}>
           <div style={{
@@ -65,7 +43,7 @@ export default function AIAdvisorPage() {
             flexDirection: 'column',
             gap: '0',
           }}>
-            <h3 style={{ color: 'var(--accent)', marginBottom: '18px' }}>Your data</h3>
+            <h3 style={{ marginBottom: '18px' }}>Your data</h3>
 
             {summaryLoading && (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -83,7 +61,7 @@ export default function AIAdvisorPage() {
                 lineHeight: 1.65,
                 flex: 1,
               }}>
-                Upload your sales data to unlock personalized advice.
+                Load a sales file and the answers here will be about your own numbers.
               </p>
             )}
 
@@ -91,36 +69,20 @@ export default function AIAdvisorPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', flex: 1 }}>
                 {/* Date range */}
                 <div>
-                  <div style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.62rem',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.10em',
-                    color: 'var(--text-muted)',
-                    marginBottom: '4px',
-                  }}>
+                  <div className="ui-label" style={{ marginBottom: '4px' }}>
                     Date range
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                     {summary.date_range}
                   </div>
                 </div>
 
                 {/* Total transactions */}
                 <div>
-                  <div style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '0.62rem',
-                    fontWeight: 500,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.10em',
-                    color: 'var(--text-muted)',
-                    marginBottom: '4px',
-                  }}>
+                  <div className="ui-label" style={{ marginBottom: '4px' }}>
                     Transactions
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                     {summary.total_transactions.toLocaleString()}
                   </div>
                 </div>
@@ -128,15 +90,7 @@ export default function AIAdvisorPage() {
                 {/* Top 3 products */}
                 {top3.length > 0 && (
                   <div>
-                    <div style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '0.62rem',
-                      fontWeight: 500,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.10em',
-                      color: 'var(--text-muted)',
-                      marginBottom: '8px',
-                    }}>
+                    <div className="ui-label" style={{ marginBottom: '8px' }}>
                       Top products
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -144,7 +98,8 @@ export default function AIAdvisorPage() {
                         <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                           <div style={{
                             fontFamily: 'var(--font-mono)',
-                            fontSize: '0.60rem',
+                            fontVariantNumeric: 'tabular-nums',
+                            fontSize: '0.66rem',
                             color: 'var(--accent)',
                             width: '14px',
                             flexShrink: 0,
@@ -168,18 +123,10 @@ export default function AIAdvisorPage() {
                 {/* Best day */}
                 {summary.best_dow && summary.best_dow !== 'unknown' && (
                   <div>
-                    <div style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '0.62rem',
-                      fontWeight: 500,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.10em',
-                      color: 'var(--text-muted)',
-                      marginBottom: '4px',
-                    }}>
+                    <div className="ui-label" style={{ marginBottom: '4px' }}>
                       Best day
                     </div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '0.78rem', color: 'var(--text-primary)' }}>
                       {summary.best_dow}
                     </div>
                   </div>

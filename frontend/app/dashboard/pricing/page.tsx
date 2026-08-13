@@ -1,23 +1,38 @@
 'use client'
 
 import { useCallback } from 'react'
+import { ArrowDown, ArrowRight, ArrowUp, Check, Coins } from 'lucide-react'
 import { useSession } from '@/context/SessionContext'
 import { getPricing } from '@/lib/api'
 import { usePageData } from '@/lib/hooks'
 import type { PricingResponse } from '@/types'
 import ErrorCard from '@/components/ErrorCard'
 import { SkeletonRecommendation } from '@/components/SkeletonCard'
+import {
+  Badge,
+  Card,
+  EmptyState,
+  PageHeader,
+  emptyIconProps,
+  tone,
+  type Tone,
+} from '@/components/ui'
 
-const actionColor: Record<string, string> = {
-  '↑ Raise Price':       '#16a34a',
-  '↓ Consider Lowering': '#dc2626',
-  '✓ Maintain':          '#2563eb',
+/* Keys are the literal `action` strings emitted by backend/engine/pricing.py —
+   they carry a glyph prefix. We match on them but never render them raw: the
+   badge shows a clean label plus a lucide icon. */
+const ACTION_META: Record<string, { label: string; tone: Tone; Icon: typeof ArrowUp }> = {
+  '↑ Raise Price':       { label: 'Raise price',       tone: 'positive', Icon: ArrowUp },
+  '↓ Consider Lowering': { label: 'Consider lowering', tone: 'negative', Icon: ArrowDown },
+  '✓ Maintain':          { label: 'Maintain',          tone: 'info',     Icon: Check },
 }
 
-const confidenceBadge: Record<string, { label: string; color: string }> = {
-  high:         { label: 'Strong signal',      color: '#16a34a' },
-  directional:  { label: 'Worth testing',      color: '#d97706' },
-  insufficient: { label: 'Not enough data yet', color: '#94a3b8' },
+const ACTION_FALLBACK = { label: 'Review', tone: 'info' as Tone, Icon: Check }
+
+const CONFIDENCE_BADGE: Record<string, { label: string; tone: Tone }> = {
+  high:         { label: 'Strong signal',       tone: 'positive' },
+  directional:  { label: 'Worth testing',       tone: 'warning' },
+  insufficient: { label: 'Not enough data yet', tone: 'neutral' },
 }
 
 export default function PricingPage() {
@@ -32,149 +47,120 @@ export default function PricingPage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-          <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--accent)' }}>Intelligence</span>
-        </div>
-        <h1 style={{ color: 'var(--t1)', marginBottom: '14px' }}>Pricing Check</h1>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', color: 'var(--t2)', maxWidth: '500px', lineHeight: 1.75 }}>
-          See which products might be priced too high or too low based on how they&apos;re selling.
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="Pricing Check"
+        context="Where your prices look out of step with how much each product actually shifts."
+      />
 
-      {error && <div style={{ marginBottom: '24px' }}><ErrorCard message={error} onRetry={retry} /></div>}
+      {error && <div style={{ marginBottom: '20px' }}><ErrorCard message={error} onRetry={retry} /></div>}
 
       {slow && loading && (
-        <div style={{
-          backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-          borderLeft: '4px solid #d97706', borderRadius: 'var(--radius-card)',
-          padding: '18px 22px', marginBottom: '24px', boxShadow: 'var(--shadow-xs)',
-        }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            Analysing price and volume patterns — this may take a moment.
+        <Card accent="warning" padding="16px 20px" style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem' }}>
+            Comparing prices against sales volume. This takes a moment.
           </p>
-        </div>
+        </Card>
       )}
 
       {data && !data.has_data && (
-        <div style={{
-          backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-card)', padding: '40px 28px', textAlign: 'center',
-          boxShadow: 'var(--shadow-sm)',
-        }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>💰</div>
-          <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>Not enough data</div>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '400px', margin: '0 auto', lineHeight: 1.65 }}>
-            {data.warning ?? 'Need at least 15 transactions per product to generate pricing recommendations.'}
-          </p>
-        </div>
+        <EmptyState
+          icon={<Coins {...emptyIconProps} aria-hidden />}
+          title="Not enough data"
+          description={data.warning ?? 'A price check needs at least 15 sales per product before it means anything.'}
+        />
       )}
 
       {data?.recommendations && data.recommendations.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {data.recommendations.map((rec, i) => {
-            const acColor = actionColor[rec.action] ?? 'var(--accent)'
-            const badge = rec.elasticity_confidence ? confidenceBadge[rec.elasticity_confidence] : null
+            const action = ACTION_META[rec.action] ?? ACTION_FALLBACK
+            const actionTone = action.tone
+            const actionColor = tone(actionTone).fg
+            const badge = rec.elasticity_confidence ? CONFIDENCE_BADGE[rec.elasticity_confidence] : null
             const priceChanged = rec.suggested_price !== rec.current_price
 
             return (
-              <div
+              <Card
                 key={i}
+                interactive
+                padding="18px 22px"
                 className="fade-up"
-                style={{
-                  animationDelay: `${i * 60}ms`, opacity: 0,
-                  backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-                  borderLeft: `4px solid ${acColor}`, borderRadius: 'var(--radius-card)',
-                  padding: 'clamp(16px, 3vw, 22px) clamp(16px, 3vw, 26px)', boxShadow: 'var(--shadow-sm)',
-                  transition: 'box-shadow 0.25s ease, transform 0.25s ease',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; e.currentTarget.style.transform = 'translateY(0)' }}
+                style={{ animationDelay: `${i * 60}ms`, opacity: 0 }}
               >
                 {/* Header row */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '1rem', color: 'var(--t1)', marginBottom: '4px' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.95rem', color: 'var(--t1)', marginBottom: '7px' }}>
                       {rec.product}
                     </div>
-                    <span style={{
-                      display: 'inline-block', padding: '3px 12px',
-                      backgroundColor: `${acColor}18`, borderRadius: '999px',
-                      fontFamily: 'var(--font-body)', fontWeight: 800, fontSize: '0.68rem',
-                      letterSpacing: '0.10em', color: acColor,
-                    }}>
-                      {rec.action}
-                    </span>
+                    <Badge
+                      toneName={actionTone}
+                      icon={<action.Icon size={13} strokeWidth={2} aria-hidden />}
+                    >
+                      {action.label}
+                    </Badge>
                   </div>
 
-                  {/* Price display */}
+                  {/* Price */}
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.5rem', fontWeight: 500, color: 'var(--text-muted)', textDecoration: priceChanged ? 'line-through' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)',
+                        fontVariantNumeric: 'tabular-nums',
+                        fontSize: '1.25rem',
+                        fontWeight: 500,
+                        color: priceChanged ? 'var(--t2)' : 'var(--t1)',
+                        textDecoration: priceChanged ? 'line-through' : 'none',
+                      }}>
                         {currency}{rec.current_price.toFixed(2)}
-                      </div>
+                      </span>
                       {priceChanged && (
                         <>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>→</span>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.5rem', fontWeight: 500, color: acColor }}>
+                          <ArrowRight size={14} strokeWidth={2} style={{ color: 'var(--t2)' }} aria-hidden />
+                          <span style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '1.25rem', fontWeight: 500, color: actionColor }}>
                             {currency}{rec.suggested_price.toFixed(2)}
-                          </div>
+                          </span>
                         </>
                       )}
                     </div>
-                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--t2)', marginTop: '3px' }}>
                       {rec.n_transactions.toLocaleString()} transactions
                     </div>
                   </div>
                 </div>
 
                 {/* Reason */}
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: badge ? '12px' : 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--t2)', lineHeight: 1.7, marginBottom: 0 }}>
                   {rec.reason}
                 </p>
 
-                {/* Confidence badge */}
-                {badge && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: badge.color, flexShrink: 0 }} />
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.68rem', letterSpacing: '0.10em', textTransform: 'uppercase', color: badge.color }}>
-                      {badge.label}
-                    </span>
-                  </div>
-                )}
-
-                {/* Reliability */}
-                {rec.reliability && (
-                  <div style={{ marginTop: '8px' }}>
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: '0.68rem', fontWeight: 700,
-                      color: rec.reliability === 'high' ? '#16a34a' : '#d97706',
-                    }}>
-                      {rec.reliability === 'high' ? 'Strong signal' : 'Early signal, worth watching'}
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
-                      {' '}— based on {rec.n_transactions.toLocaleString()} transactions
-                    </span>
+                {/* Signal strength */}
+                {(badge || rec.reliability) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+                    {badge && <Badge toneName={badge.tone} shape="tag" dot>{badge.label}</Badge>}
+                    {rec.reliability && (
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--t2)' }}>
+                        {rec.reliability === 'high' ? 'Strong signal' : 'Early signal, worth watching'}
+                        {', '}from {rec.n_transactions.toLocaleString()} transactions
+                      </span>
+                    )}
                   </div>
                 )}
 
                 {/* Sensitivity label */}
                 {rec.sensitivity_label && (
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '8px', marginBottom: 0, lineHeight: 1.6 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--t2)', marginTop: '8px', marginBottom: 0, lineHeight: 1.6 }}>
                     {rec.sensitivity_label}
                   </p>
                 )}
-              </div>
+              </Card>
             )
           })}
         </div>
       )}
 
       {loading && !data && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <SkeletonRecommendation />
           <SkeletonRecommendation />
           <SkeletonRecommendation />

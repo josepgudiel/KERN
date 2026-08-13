@@ -1,38 +1,53 @@
+/**
+ * Chart tokens — KERN brand system.
+ *
+ * Recharts renders to SVG attributes rather than CSS properties, so several of
+ * these have to be literal values instead of `var(--token)` references. They are
+ * kept here, in one file, mirroring the custom properties in app/globals.css so
+ * charts and chrome stay in step. Values that *are* consumed as CSS (tooltip
+ * contentStyle / labelStyle) use the tokens directly.
+ */
+
 export const CHART_COLORS = {
-  primary:   '#00d4ff',
-  secondary: 'rgba(0,212,255,0.45)',
-  muted:     'rgba(0,212,255,0.15)',
-  grid:      'rgba(255,255,255,0.04)',
-  positive:  '#10b981',
-  negative:  '#f43f5e',
-  warning:   '#f59e0b',
+  primary:   '#b4531f',                  // --lp-accent
+  secondary: 'rgba(180,83,31,0.45)',
+  muted:     'rgba(180,83,31,0.14)',
+  grid:      '#e6e1da',                  // --lp-line
+  axis:      '#cdc5ba',                  // --lp-line-2
+  positive:  '#147a55',                  // --green
+  negative:  '#b02a20',                  // --red
+  warning:   '#8a6008',                  // --amber
+  surface:   '#ffffff',                  // --bg-card (white cards in the app)
+  elevated:  '#f7f5f2',                  // --bg-mid
 }
 
 export const tooltipStyle = {
   contentStyle: {
-    backgroundColor: '#1a1a24',
-    border: '1px solid rgba(255,255,255,0.10)',
-    borderRadius: '4px',
-    color: '#f0f0f5',
-    fontFamily: "'DM Mono', monospace",
+    backgroundColor: 'var(--bg-card)',
+    border: '1px solid var(--border)',
+    borderRadius: 'var(--radius)',
+    color: 'var(--t1)',
+    /* The readout is figures, so it stays mono and tabular. Its heading is a
+       label and follows the label voice. */
+    fontFamily: 'var(--font-mono)',
+    fontVariantNumeric: 'tabular-nums',
     fontSize: '12px',
-    boxShadow: 'none',
+    boxShadow: 'var(--shadow-md)',
     padding: '10px 14px',
   },
   labelStyle: {
-    color: '#00d4ff',
-    fontWeight: 700,
-    fontSize: '10px',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.12em',
+    color: 'var(--t1)',
+    fontWeight: 600,
+    fontSize: '11px',
+    letterSpacing: '-0.004em',
     marginBottom: '4px',
-    fontFamily: "'DM Mono', monospace",
+    fontFamily: 'var(--font-heading)',
   },
-  cursor: { fill: 'rgba(0,212,255,0.04)' },
+  cursor: { fill: 'rgba(180,83,31,0.07)' },
 }
 
 export const axisStyle = {
-  tick:     { fill: '#4a4a5e', fontFamily: "'DM Mono', monospace", fontSize: 10 },
-  axisLine: { stroke: 'rgba(255,255,255,0.06)' },
+  tick:     { fill: '#55504a', fontFamily: 'var(--font-mono)', fontSize: 10 }, // --t2
+  axisLine: { stroke: '#cdc5ba' },                                            // --lp-line-2
   tickLine: { stroke: 'transparent' },
 }

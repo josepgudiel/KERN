@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, type DragEvent, type ChangeEvent } from 'react'
-import { Upload, FileSpreadsheet, Loader2, CheckCircle } from 'lucide-react'
+import { Upload, FileSpreadsheet, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
 import { uploadFile } from '@/lib/api'
 import { useSession } from '@/context/SessionContext'
 import { useRouter } from 'next/navigation'
@@ -126,8 +126,9 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
           transition: 'all 0.2s ease',
           cursor: loading ? 'default' : 'pointer',
           opacity: loading ? 0.8 : 1,
-          backgroundColor: dragging ? 'rgba(37,99,235,0.04)' : 'var(--surface-warm)',
-          transform: dragging ? 'scale(1.01)' : 'scale(1)',
+          // Drag feedback is a border and fill shift, not a scale bump — the
+          // zone stays exactly where the cursor left it.
+          backgroundColor: dragging ? 'var(--sky-06)' : 'var(--surface-warm)',
         }}
         onMouseEnter={(e) => {
           if (!loading && !dragging) {
@@ -146,8 +147,8 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
 
         {success ? (
           <>
-            <CheckCircle style={{ margin: '0 auto 12px', color: '#16a34a' }} size={40} strokeWidth={1.5} />
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, color: '#16a34a', fontSize: '1.05rem', marginBottom: '4px' }}>
+            <CheckCircle style={{ margin: '0 auto 12px', color: 'var(--green)' }} size={40} strokeWidth={1.5} />
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 700, color: 'var(--green)', fontSize: '1.05rem', marginBottom: '4px' }}>
               Analysis complete &mdash; loading your dashboard
             </p>
           </>
@@ -175,16 +176,16 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
       {error && (
         <div style={{
           marginTop: '16px',
-          borderLeft: '4px solid #dc2626',
+          borderLeft: '3px solid var(--red)',
           backgroundColor: 'var(--surface)',
           borderRadius: '14px',
           padding: '14px 16px',
           boxShadow: 'var(--shadow-xs)',
         }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: '#dc2626', fontSize: '0.82rem', marginBottom: '8px' }}>{error}</p>
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--red)', fontSize: '0.82rem', marginBottom: '8px' }}>{error}</p>
           <button
             onClick={resetZone}
-            className="label-caps"
+            className="ui-label"
             style={{
               color: 'var(--accent)',
               background: 'none',
@@ -192,7 +193,9 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
               cursor: 'pointer',
               transition: 'color 0.15s ease',
             }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--navy)' }}
+            /* Hovered to --navy, which is darker than the surface it sits on —
+               the label disappeared on hover. Brightens to --t1 instead. */
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--t1)' }}
             onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--accent)' }}
           >
             Try another file &rarr;
@@ -287,14 +290,18 @@ export default function UploadZone({ onSuccess }: UploadZoneProps) {
 
       {warningMessage && (
         <div style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '9px',
           marginTop: '12px',
           padding: '12px 14px',
           borderRadius: '14px',
-          backgroundColor: 'rgba(217,119,6,0.06)',
-          border: '1px solid rgba(217,119,6,0.20)',
+          backgroundColor: 'var(--warning-dim)',
+          border: '1px solid rgba(251,191,36,0.24)',
         }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: '#92400e', fontSize: '0.78rem' }}>
-            {'\u26A0\uFE0F'} {warningMessage}
+          <AlertTriangle size={15} strokeWidth={1.75} style={{ color: 'var(--amber)', flexShrink: 0, marginTop: '2px' }} aria-hidden />
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.78rem', margin: 0, lineHeight: 1.55 }}>
+            {warningMessage}
           </p>
         </div>
       )}

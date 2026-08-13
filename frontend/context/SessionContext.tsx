@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
 import type { UploadResponse } from "@/types";
-import { clearKernCache } from "@/lib/hooks";
+import { clearKernCache } from "@/lib/cache";
 
 export interface BusinessProfile {
   business_name: string;

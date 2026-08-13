@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --no-install playwright --version)",
+      "Bash(npm ls *)",
+      "Read(//Users/josegudiel/.npm/_npx/**)",
+      "Bash(curl -s -o /dev/null -w \"fe3010=%{http_code}\\\\n\" http://localhost:3010/)",
+      "Bash(curl -s \"http://127.0.0.1:8000/demo?dataset=coffee_shop\")",
+      "Bash(npx --yes playwright@1.62.1 --version)",
+      "Bash(node --input-type=module -e \"import\\('playwright'\\).then\\(\\(\\)=>console.log\\('resolvable'\\)\\).catch\\(e=>console.log\\('ERR',e.code\\)\\)\")",
+      "Bash(NODE_PATH=/Users/josegudiel/.npm/_npx/db89d7302a373f10/node_modules node drive.mjs)",
+      "Bash(ln -sfn /Users/josegudiel/.npm/_npx/db89d7302a373f10/node_modules /private/tmp/claude-501/-Users-josegudiel-Downloads-project6/dc23fc70-bf24-4402-bb54-ee74bf11eb25/scratchpad/node_modules)",
+      "Bash(node -e \"import\\('playwright'\\).then\\(p=>console.log\\('ok', typeof p.chromium\\)\\)\")",
+      "Bash(node drive.mjs)",
+      "Bash(python3 -c ' *)",
+      "Bash(node drive2.mjs)",
+      "Bash(node mob.mjs)",
+      "Bash(pkill -f \"next dev -p 3010\")",
+      "Bash(lsof -nP -iTCP:3010 -sTCP:LISTEN)",
+      "Bash(../venv/bin/python -c ' *)",
+      "Bash(../venv/bin/python /tmp/verify_demo.py)",
+      "Bash(../venv/bin/python /tmp/sweep.py)",
+      "Bash(../venv/bin/python -m uvicorn main:app --port 8001 --host 127.0.0.1 > /tmp/kern-be-8001.log 2>&1)",
+      "Bash(curl -s -o /dev/null -w \"frontend=%{http_code}\\\\n\" http://localhost:3010/)",
+      "Bash(./venv/bin/python -m pytest tests -q)",
+      "Bash(pkill -f \"uvicorn main:app --port 8001\")",
+      "Bash(python3 -c \"import json;print\\(json.load\\(open\\('package.json'\\)\\)['scripts']\\)\")",
+      "Bash(lsof -nP -iTCP:3000 -sTCP:LISTEN -t)",
+      "Bash(xargs -I{} ps -o command= -p {})",
+      "Bash(lsof -nP -iTCP:8000 -sTCP:LISTEN -t)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(gh auth *)",
+      "Bash(grep -iE '\\\\.env$|\\\\.env\\\\.')",
+      "Bash(grep -inE '\\(api[_-]?key|secret|password|token|sk-[a-z0-9]{10}\\)\\\\s*[:=]\\\\s*[\"\\\\x27][^\"\\\\x27]{8,}')",
+      "Bash(git check-ignore *)",
+      "Bash(git add *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

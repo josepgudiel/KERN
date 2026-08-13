@@ -5,6 +5,8 @@ import { useSession } from '@/context/SessionContext'
 import { postReport } from '@/lib/api'
 import type { ReportResponse } from '@/types'
 import ErrorCard from '@/components/ErrorCard'
+import { Card, PageHeader } from '@/components/ui'
+import { Check } from 'lucide-react'
 
 export default function ReportPage() {
   const { sessionId } = useSession()
@@ -24,7 +26,7 @@ export default function ReportPage() {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'An unexpected error occurred.'
       if (msg.includes('503') || msg.includes('GROQ_API_KEY')) {
-        setError('AI report unavailable — make sure GROQ_API_KEY is set in the backend .env file.')
+        setError('Report generation is unavailable right now. Check that the backend is configured, then try again.')
       } else {
         setError(msg)
       }
@@ -57,40 +59,28 @@ export default function ReportPage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-          <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--accent)' }}>Summary</span>
-        </div>
-        <h1 style={{ color: 'var(--t1)', marginBottom: '14px' }}>Report</h1>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', color: 'var(--t2)', maxWidth: '500px', lineHeight: 1.75 }}>
-          A plain-English business performance summary you can share with your accountant, partner, or investor.
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="Report"
+        context="A plain-English write-up of the period, ready to send to an accountant, a partner or a lender."
+      />
 
-      {error && <div style={{ marginBottom: '24px' }}><ErrorCard message={error} onRetry={generate} /></div>}
+      {error && <div style={{ marginBottom: '20px' }}><ErrorCard message={error} onRetry={generate} /></div>}
 
       {/* Generate button */}
       {!data && !loading && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '16px' }}>
           <button onClick={generate} className="btn-primary">
-            Generate Report
+            Write the report
           </button>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: '420px' }}>
-            Takes about 5–10 seconds. The report is generated fresh each time from your current data.
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--t2)', lineHeight: 1.6, maxWidth: '420px' }}>
+            Takes about ten seconds. Each one is written fresh from the data you have loaded.
           </p>
         </div>
       )}
 
       {/* Loading state */}
       {loading && (
-        <div style={{
-          backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-          borderLeft: '4px solid var(--accent)', borderRadius: 'var(--radius-card)',
-          padding: '28px 32px', boxShadow: 'var(--shadow-sm)',
-        }}>
+        <Card padding="24px 28px">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{
               width: '20px', height: '20px', borderRadius: '50%',
@@ -98,12 +88,12 @@ export default function ReportPage() {
               animation: 'spin 0.8s linear infinite',
               flexShrink: 0,
             }} />
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-              Writing your report — this takes about 10 seconds…
+            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.88rem' }}>
+              Writing your report. This takes about ten seconds.
             </p>
           </div>
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
+        </Card>
       )}
 
       {/* Report display */}
@@ -112,48 +102,45 @@ export default function ReportPage() {
           {/* Period label + actions */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
             <div>
-              <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '4px' }}>Period</div>
-              <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.92rem', color: 'var(--t2)' }}>
+              <div className="ui-label" style={{ marginBottom: '4px' }}>Period covered</div>
+              <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.92rem', color: 'var(--t1)' }}>
                 {data.period_label}
               </div>
             </div>
             <div className="report-actions" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <button onClick={copyReport} className="btn-ghost no-print" style={{ fontSize: '0.68rem' }}>
-                {copied ? '✓ Copied' : 'Copy'}
+              <button onClick={copyReport} className="btn-ghost no-print">
+                {copied ? <><Check size={14} strokeWidth={2} aria-hidden /> Copied</> : 'Copy'}
               </button>
-              <button onClick={downloadReport} className="btn-ghost no-print" style={{ fontSize: '0.68rem' }}>
-                Download .txt
+              <button onClick={downloadReport} className="btn-ghost no-print">
+                Download
               </button>
-              <button onClick={() => window.print()} className="btn-ghost no-print" style={{ fontSize: '0.68rem' }}>
+              <button onClick={() => window.print()} className="btn-ghost no-print">
                 Print
               </button>
-              <button onClick={generate} className="btn-ghost no-print" style={{ fontSize: '0.68rem' }}>
-                Regenerate
+              <button onClick={generate} className="btn-ghost no-print">
+                Write it again
               </button>
             </div>
           </div>
 
           {/* Report body */}
-          <div className="report-body" style={{
-            backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-card)', padding: '36px 40px', boxShadow: 'var(--shadow-md)',
-          }}>
+          <Card className="report-body" padding="32px 36px" style={{ maxWidth: '72ch' }}>
             {data.report.split('\n\n').filter(Boolean).map((para, i) => (
               <p key={i} style={{
                 fontFamily: 'var(--font-body)', fontSize: '0.95rem',
-                color: 'var(--text-primary)', lineHeight: 1.85,
+                color: 'var(--t1)', lineHeight: 1.85,
                 marginBottom: i < data.report.split('\n\n').length - 1 ? '1.4em' : 0,
               }}>
                 {para.trim()}
               </p>
             ))}
-          </div>
+          </Card>
 
           <p style={{
-            fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--text-muted)',
-            textAlign: 'center', marginTop: '16px',
+            fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--t2)',
+            textAlign: 'left', marginTop: '14px',
           }}>
-            AI-generated from your sales data · Always verify numbers before sharing externally
+            Written from the sales data you uploaded. Check the figures before you send this on.
           </p>
         </div>
       )}

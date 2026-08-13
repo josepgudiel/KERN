@@ -1,17 +1,22 @@
 'use client'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { Upload } from 'lucide-react'
 import { useSession } from '@/context/SessionContext'
+import { tone } from '@/components/ui'
 
+/* One line each, and no two say the same thing. The old set had "Pricing
+   Check / Price check" and three separate items describing themselves as a
+   summary, which tells a reader nothing about where to click. */
 const NAV = [
-  { href: '/dashboard/action-center', label: 'Action Center',    sub: 'Top priorities' },
-  { href: '/dashboard/whats-selling', label: "What's Selling",   sub: 'Products & groups' },
-  { href: '/dashboard/pricing',       label: 'Pricing Check',    sub: 'Price check' },
-  { href: '/dashboard/overview',      label: 'Summary',          sub: 'Performance snapshot' },
-  { href: '/dashboard/when-to-staff', label: 'When to Staff',    sub: 'Day-of-week patterns' },
+  { href: '/dashboard/action-center', label: 'Action Center',    sub: "Today's priorities" },
+  { href: '/dashboard/whats-selling', label: "What's Selling",   sub: 'Products and groups' },
+  { href: '/dashboard/pricing',       label: 'Pricing Check',    sub: 'Under and over-priced items' },
+  { href: '/dashboard/overview',      label: 'Summary',          sub: 'Last 30 days at a glance' },
+  { href: '/dashboard/when-to-staff', label: 'When to Staff',    sub: 'Busiest days of the week' },
   { href: '/dashboard/forecast',      label: 'What to Expect',   sub: 'Revenue outlook' },
-  { href: '/dashboard/report',        label: 'Report',           sub: 'Monthly summary' },
-  { href: '/dashboard/ai-advisor',    label: 'Business Advisor', sub: 'Ask about your data' },
+  { href: '/dashboard/report',        label: 'Report',           sub: 'A write-up you can send' },
+  { href: '/dashboard/ai-advisor',    label: 'Business Advisor', sub: 'Ask about your numbers' },
 ]
 
 interface SidebarProps {
@@ -38,80 +43,51 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       }}
     >
 
-      {/* Brand — KERN N mark + wordmark */}
+      {/* Brand — text wordmark, matching the marketing nav. At this size a mark
+          beside the name adds a second thing to read and nothing to recognise. */}
       <div style={{
-        padding: '28px 20px 22px',
+        padding: '24px 20px 20px',
         borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
       }}>
-        {/* N Mark SVG */}
-        <svg width="36" height="36" viewBox="0 0 100 100" fill="none" style={{ flexShrink: 0 }}>
-          {/* Main N body — filled, rounded terminals */}
-          <path
-            d="M14 88 L14 14 Q14 10 18 10 L26 10 Q30 10 32 14 L60 62 L60 14 Q60 10 64 10 L72 10 Q76 10 76 14 L76 88 Q76 92 72 92 L64 92 Q60 92 58 88 L30 40 L30 88 Q30 92 26 92 L18 92 Q14 92 14 88 Z"
-            fill="#f0f1f6"
-          />
-          {/* Right diagonal accent — sky blue overlay */}
-          <path
-            d="M60 62 L86 14 Q88 10 84 10 L76 10 Q72 10 70 14 L60 32 Z"
-            fill="#b3e5fe"
-            opacity="0.85"
-          />
-        </svg>
-
-        {/* Wordmark */}
-        <div>
-          <span style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 800,
-            fontSize: '18px',
-            letterSpacing: '0.22em',
-            color: 'var(--t1)',
-            textTransform: 'uppercase',
-            display: 'block',
-            lineHeight: 1,
-          }}>
-            KERN
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '8px',
-            letterSpacing: '0.26em',
-            color: 'var(--sky)',
-            opacity: 0.75,
-            textTransform: 'uppercase',
-            fontWeight: 500,
-            display: 'block',
-            marginTop: '3px',
-          }}>
-            by Analytic
-          </span>
-        </div>
+        <span style={{
+          fontFamily: 'var(--font-heading)',
+          fontWeight: 700,
+          fontSize: '1.15rem',
+          letterSpacing: '-0.01em',
+          color: 'var(--t1)',
+          display: 'block',
+          lineHeight: 1.1,
+        }}>
+          Kern
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-heading)',
+          fontSize: '0.62rem',
+          fontWeight: 600,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: 'var(--t3)',
+          display: 'block',
+          marginTop: '4px',
+        }}>
+          by Analytic
+        </span>
       </div>
 
-      {/* Dataset info */}
+      {/* Dataset info — the label is words, the figures are figures. */}
       {uploadMeta && (
         <div style={{
           padding: '14px 20px',
           borderBottom: '1px solid var(--border)',
         }}>
-          <div style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '0.60rem',
-            fontWeight: 800,
-            textTransform: 'uppercase',
-            letterSpacing: '0.16em',
-            color: 'var(--t3)',
-            marginBottom: '8px',
-          }}>
-            Active Dataset
+          <div className="ui-label" style={{ marginBottom: '7px' }}>
+            Active dataset
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
             fontWeight: 500,
-            fontSize: '0.72rem',
+            fontVariantNumeric: 'tabular-nums',
+            fontSize: '0.74rem',
             color: 'var(--t1)',
             marginBottom: '3px',
           }}>
@@ -120,9 +96,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           {uploadMeta.date_range && (
             <div style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '0.60rem',
+              fontVariantNumeric: 'tabular-nums',
+              fontSize: '0.64rem',
               color: 'var(--t2)',
-              letterSpacing: '0.02em',
             }}>
               {uploadMeta.date_range.min} → {uploadMeta.date_range.max}
             </div>
@@ -130,19 +106,17 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           {uploadMeta.filename?.toLowerCase().match(/demo|sample/) && (
             <span style={{
               display: 'inline-block',
-              marginTop: '8px',
-              padding: '3px 8px',
-              backgroundColor: 'var(--sky-10)',
+              marginTop: '9px',
+              padding: '2px 8px',
+              backgroundColor: 'var(--accent-dim)',
               border: '1px solid var(--sky-20)',
               borderRadius: '4px',
-              fontFamily: 'var(--font-mono)',
-              fontWeight: 500,
-              fontSize: '0.52rem',
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--sky)',
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 600,
+              fontSize: '0.66rem',
+              color: 'var(--accent)',
             }}>
-              Demo
+              Demo data
             </span>
           )}
         </div>
@@ -154,27 +128,25 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           margin: '10px 12px 0',
           padding: '10px 12px',
           backgroundColor: 'var(--warning-dim)',
-          border: '1px solid rgba(251,191,36,0.20)',
-          borderLeft: '3px solid var(--amber)',
+          border: `1px solid ${tone('warning').edge}`,
           borderRadius: 'var(--radius-card)',
         }}>
           <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '0.56rem',
-            fontWeight: 500,
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
+            fontFamily: 'var(--font-heading)',
+            fontSize: '0.72rem',
+            fontWeight: 600,
             color: 'var(--amber)',
-            marginBottom: '3px',
+            marginBottom: '2px',
           }}>
-            Stale Data
+            Ageing data
           </div>
           <div style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.68rem',
+            fontSize: '0.7rem',
             color: 'var(--t2)',
+            lineHeight: 1.45,
           }}>
-            Most recent data is {daysStale} days old
+            The newest sale in this file is {daysStale} days old.
           </div>
         </div>
       )}
@@ -192,36 +164,37 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 display: 'flex',
                 flexDirection: 'column',
                 padding: '9px 12px',
-                borderRadius: 'var(--radius-card)',
+                borderRadius: 'var(--radius)',
                 textDecoration: 'none',
-                backgroundColor: active ? 'var(--sky-10)' : 'transparent',
-                borderLeft: active ? '2px solid var(--sky)' : '2px solid transparent',
-                paddingLeft: '12px',
+                /* The active item is a filled row, not a row wearing a rule
+                   down its side. One decoration is enough to find it. */
+                backgroundColor: active ? 'var(--accent-dim)' : 'transparent',
                 transition: 'background-color 0.15s ease',
               }}
               onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.backgroundColor = 'var(--sky-06)'
+                if (!active) e.currentTarget.style.backgroundColor = 'var(--bg-alt)'
               }}
               onMouseLeave={(e) => {
                 if (!active) e.currentTarget.style.backgroundColor = 'transparent'
               }}
             >
               <div style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: active ? 600 : 400,
-                fontSize: '0.80rem',
-                color: active ? 'var(--sky)' : 'var(--t2)',
-                letterSpacing: '0.01em',
-                lineHeight: 1.3,
+                fontFamily: 'var(--font-heading)',
+                fontWeight: active ? 600 : 500,
+                fontSize: '0.86rem',
+                color: active ? 'var(--accent)' : 'var(--t1)',
+                letterSpacing: '-0.004em',
+                lineHeight: 1.35,
               }}>
                 {item.label}
               </div>
               <div style={{
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.62rem',
-                color: active ? 'var(--sky)' : 'var(--t3)',
+                fontSize: '0.68rem',
+                color: active ? 'var(--accent)' : 'var(--t2)',
+                opacity: active ? 0.78 : 1,
                 marginTop: '1px',
-                opacity: active ? 0.6 : 0.6,
+                lineHeight: 1.35,
               }}>
                 {item.sub}
               </div>
@@ -239,31 +212,33 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           onClick={() => { onClose?.(); clearSession(); router.push('/') }}
           style={{
             width: '100%',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '7px',
             padding: '9px 14px',
             backgroundColor: 'transparent',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)',
-            fontFamily: 'var(--font-body)',
+            border: '1px solid var(--border2)',
+            borderRadius: '6px',
+            fontFamily: 'var(--font-heading)',
             fontWeight: 500,
-            fontSize: '0.62rem',
-            letterSpacing: '0.10em',
-            textTransform: 'uppercase',
-            color: 'var(--t3)',
+            fontSize: '0.82rem',
+            letterSpacing: '-0.005em',
+            color: 'var(--t1)',
             cursor: 'pointer',
-            transition: 'all 0.15s ease',
+            transition: 'border-color 0.15s ease, background-color 0.15s ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border2)'
-            e.currentTarget.style.color = 'var(--t2)'
-            e.currentTarget.style.backgroundColor = 'var(--sky-06)'
+            e.currentTarget.style.borderColor = 'var(--t1)'
+            e.currentTarget.style.backgroundColor = 'var(--bg-alt)'
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border)'
-            e.currentTarget.style.color = 'var(--t3)'
+            e.currentTarget.style.borderColor = 'var(--border2)'
             e.currentTarget.style.backgroundColor = 'transparent'
           }}
         >
-          ↑ Upload New File
+          <Upload size={14} strokeWidth={1.75} aria-hidden />
+          Upload a new file
         </button>
       </div>
     </aside>

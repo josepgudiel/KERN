@@ -1,32 +1,41 @@
 'use client'
 
 import { useCallback } from 'react'
+import { BarChart3, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { useSession } from '@/context/SessionContext'
 import { getOverview } from '@/lib/api'
 import { usePageData } from '@/lib/hooks'
 import type { OverviewResponse } from '@/types'
 import ErrorCard from '@/components/ErrorCard'
 import { SkeletonMetric, SkeletonRecommendation } from '@/components/SkeletonCard'
+import {
+  Badge,
+  Card,
+  EmptyState,
+  PageHeader,
+  StatTile,
+  deltaTone,
+  emptyIconProps,
+  iconProps,
+  tone,
+  type Tone,
+} from '@/components/ui'
 
-function DeltaPill({ value, label }: { value: number; label: string }) {
-  const pos = value >= 0
+const TREND_META: Record<string, { label: string; tone: Tone; Icon: typeof TrendingUp }> = {
+  upward:   { label: 'Upward trend',   tone: 'positive', Icon: TrendingUp },
+  downward: { label: 'Downward trend', tone: 'negative', Icon: TrendingDown },
+  flat:     { label: 'Stable',         tone: 'info',     Icon: Minus },
+}
+
+function DeltaTile({ value, label }: { value: number; label: string }) {
+  const t = deltaTone(value)
   return (
-    <div style={{
-      backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-card)', padding: '20px 24px', boxShadow: 'var(--shadow-sm)',
-    }}>
-      <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>{label}</div>
-      <div className="number-display" style={{
-        fontSize: 'clamp(1.6rem, 3vw, 2.2rem)',
-        color: pos ? '#16a34a' : '#dc2626',
-      }}>
-        {value > 0 ? '+' : ''}{value.toFixed(1)}%
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontFamily: 'var(--font-body)', fontSize: '0.68rem', fontWeight: 700, color: pos ? '#16a34a' : '#dc2626' }}>
-        <span style={{ fontSize: '0.55rem' }}>{pos ? '▲' : '▼'}</span>
-        vs prior 30 days
-      </div>
-    </div>
+    <StatTile
+      label={label}
+      value={`${value > 0 ? '+' : ''}${value.toFixed(1)}%`}
+      valueTone={t}
+      hint="vs prior 30 days"
+    />
   )
 }
 
@@ -46,176 +55,159 @@ export default function OverviewPage() {
     return `${currency}${n.toFixed(2)}`
   }
 
-  const trendColor = data?.trend === 'upward' ? '#16a34a' : data?.trend === 'downward' ? '#dc2626' : '#1e3a5f'
-  const trendLabel = data?.trend === 'upward' ? '↗ Upward trend' : data?.trend === 'downward' ? '↘ Downward trend' : '→ Stable'
+  const trend = data ? TREND_META[data.trend] ?? TREND_META.flat : null
+  const comparison = data?.period_comparison
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-          <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--t3)' }}>Performance</span>
-        </div>
-        <h1 style={{ color: 'var(--t1)', marginBottom: '14px' }}>Summary</h1>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', color: 'var(--t2)', maxWidth: '500px', lineHeight: 1.75 }}>
-          Last 30 days vs prior 30 days, plus unusual sales days.
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="Summary"
+        context="The last 30 days measured against the 30 before them, plus any day that stood out."
+        actions={data && trend ? (
+          <>
+            <Badge toneName={trend.tone} icon={<trend.Icon size={13} strokeWidth={2} aria-hidden />}>
+              {trend.label}
+            </Badge>
+            {data.wow_pct != null && (
+              <Badge toneName={deltaTone(data.wow_pct)} shape="tag">
+                {data.wow_pct > 0 ? '+' : ''}{data.wow_pct.toFixed(1)}% WoW
+              </Badge>
+            )}
+          </>
+        ) : undefined}
+      />
 
-      {error && <div style={{ marginBottom: '24px' }}><ErrorCard message={error} onRetry={retry} /></div>}
+      {error && <div style={{ marginBottom: '20px' }}><ErrorCard message={error} onRetry={retry} /></div>}
 
       {slow && loading && (
-        <div style={{
-          backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-          borderLeft: '4px solid #d97706', borderRadius: 'var(--radius-card)',
-          padding: '18px 22px', marginBottom: '24px', boxShadow: 'var(--shadow-xs)',
-        }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            This is taking longer than usual — try refreshing in a moment.
+        <Card accent="warning" padding="16px 20px" style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem' }}>
+            Still loading. Refresh in a moment if nothing appears.
           </p>
-        </div>
+        </Card>
       )}
 
-      {/* Trend pill + WoW */}
-      {data && (
-        <div className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px', flexWrap: 'wrap' }}>
-          <span style={{
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            fontFamily: 'var(--font-body)', fontWeight: 800, textTransform: 'uppercase',
-            fontSize: '0.68rem', letterSpacing: '0.14em',
-            padding: '8px 20px', borderRadius: '999px',
-            color: '#ffffff', backgroundColor: trendColor,
-          }}>
-            {trendLabel}
-          </span>
-          {data.wow_pct != null && (
-            <span style={{
-              fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.80rem',
-              color: data.wow_pct >= 0 ? '#16a34a' : '#dc2626',
-            }}>
-              {data.wow_pct > 0 ? '+' : ''}{data.wow_pct.toFixed(1)}% week-over-week
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Period comparison metrics */}
-      {data?.period_comparison ? (
-        <section style={{ marginBottom: '40px' }}>
-          <h3 style={{ color: 'var(--t3)', marginBottom: '6px' }}>Period Comparison</h3>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '20px' }}>
-            {data.period_comparison!.label_b} ({fmtRev(data.period_comparison!.rev_b)}) vs {data.period_comparison!.label_a} ({fmtRev(data.period_comparison!.rev_a)})
+      {/* Period comparison */}
+      {comparison ? (
+        <section style={{ marginBottom: '36px' }}>
+          <h3 style={{ marginBottom: '4px' }}>Period comparison</h3>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '16px' }}>
+            {comparison.label_b} ({fmtRev(comparison.rev_b)}) vs {comparison.label_a} ({fmtRev(comparison.rev_a)})
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-            <DeltaPill value={data.period_comparison!.revenue_delta_pct} label="Revenue" />
-            <DeltaPill value={data.period_comparison!.orders_delta_pct} label="Orders" />
-            <DeltaPill value={data.period_comparison!.aov_delta_pct} label="Avg Order Value" />
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '20px' }}>
+            <DeltaTile value={comparison.revenue_delta_pct} label="Revenue" />
+            <DeltaTile value={comparison.orders_delta_pct} label="Orders" />
+            <DeltaTile value={comparison.aov_delta_pct} label="Average order value" />
           </div>
 
           {/* Risers / Fallers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {data.period_comparison!.top_risers.length > 0 && (
-              <div style={{
-                backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-                borderLeft: '4px solid #16a34a', borderRadius: 'var(--radius-card)',
-                padding: '20px 22px', boxShadow: 'var(--shadow-sm)',
-              }}>
-                <div className="label-caps" style={{ color: '#16a34a', marginBottom: '12px' }}>Rising</div>
-                {data.period_comparison!.top_risers.map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < (data.period_comparison?.top_risers?.length ?? 0) - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{r.product}</span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.80rem', color: '#16a34a' }}>+{r.delta_pct.toFixed(1)}%</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+            {comparison.top_risers.length > 0 && (
+              <Card accent="positive">
+                <h3 style={{ color: 'var(--green)', marginBottom: '10px' }}>Rising</h3>
+                {comparison.top_risers.map((r, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+                    padding: '6px 0',
+                    borderBottom: i < comparison.top_risers.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--t1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.product}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--green)', flexShrink: 0 }}>+{r.delta_pct.toFixed(1)}%</span>
                   </div>
                 ))}
-              </div>
+              </Card>
             )}
-            {data.period_comparison!.top_fallers.length > 0 && (
-              <div style={{
-                backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-                borderLeft: '4px solid #dc2626', borderRadius: 'var(--radius-card)',
-                padding: '20px 22px', boxShadow: 'var(--shadow-sm)',
-              }}>
-                <div className="label-caps" style={{ color: '#dc2626', marginBottom: '12px' }}>Falling</div>
-                {data.period_comparison!.top_fallers.map((r, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: i < (data.period_comparison?.top_fallers?.length ?? 0) - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{r.product}</span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.80rem', color: '#dc2626' }}>{r.delta_pct.toFixed(1)}%</span>
+            {comparison.top_fallers.length > 0 && (
+              <Card accent="negative">
+                <h3 style={{ color: 'var(--red)', marginBottom: '10px' }}>Falling</h3>
+                {comparison.top_fallers.map((r, i) => (
+                  <div key={i} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+                    padding: '6px 0',
+                    borderBottom: i < comparison.top_fallers.length - 1 ? '1px solid var(--border)' : 'none',
+                  }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--t1)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.product}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--red)', flexShrink: 0 }}>{r.delta_pct.toFixed(1)}%</span>
                   </div>
                 ))}
-              </div>
+              </Card>
             )}
           </div>
 
           {/* New / Dropped products */}
-          {(data.period_comparison!.new_products.length > 0 || data.period_comparison!.dropped_products.length > 0) && (
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
-              {data.period_comparison!.new_products.length > 0 && (
-                <div style={{ backgroundColor: 'rgba(22,163,74,0.06)', border: '1px solid rgba(22,163,74,0.18)', borderRadius: '12px', padding: '10px 14px' }}>
-                  <span className="label-caps" style={{ color: '#16a34a', fontSize: '0.55rem' }}>New this period · </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.80rem', color: 'var(--text-secondary)' }}>{data.period_comparison!.new_products.join(', ')}</span>
+          {(comparison.new_products.length > 0 || comparison.dropped_products.length > 0) && (
+            <div style={{ display: 'flex', gap: '12px', marginTop: '14px', flexWrap: 'wrap' }}>
+              {comparison.new_products.length > 0 && (
+                <div style={{
+                  backgroundColor: tone('positive').dim,
+                  border: `1px solid ${tone('positive').edge}`,
+                  borderRadius: '10px',
+                  padding: '9px 13px',
+                }}>
+                  <span className="ui-label" style={{ color: 'var(--green)' }}>New this period · </span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.80rem', color: 'var(--t2)' }}>{comparison.new_products.join(', ')}</span>
                 </div>
               )}
-              {data.period_comparison!.dropped_products.length > 0 && (
-                <div style={{ backgroundColor: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.18)', borderRadius: '12px', padding: '10px 14px' }}>
-                  <span className="label-caps" style={{ color: '#dc2626', fontSize: '0.55rem' }}>Not sold this period · </span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.80rem', color: 'var(--text-secondary)' }}>{data.period_comparison!.dropped_products.join(', ')}</span>
+              {comparison.dropped_products.length > 0 && (
+                <div style={{
+                  backgroundColor: tone('negative').dim,
+                  border: `1px solid ${tone('negative').edge}`,
+                  borderRadius: '10px',
+                  padding: '9px 13px',
+                }}>
+                  <span className="ui-label" style={{ color: 'var(--red)' }}>Not sold this period · </span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.80rem', color: 'var(--t2)' }}>{comparison.dropped_products.join(', ')}</span>
                 </div>
               )}
             </div>
           )}
         </section>
       ) : data && data.has_dates && (
-        <div style={{
-          backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-card)', padding: '24px', marginBottom: '40px',
-          boxShadow: 'var(--shadow-sm)',
-        }}>
+        <Card style={{ marginBottom: '36px' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--t2)' }}>
-            {data.warning ?? 'Need at least 60 days of data for period comparison.'}
+            {data.warning ?? 'A period comparison needs at least 60 days of history.'}
           </p>
-        </div>
+        </Card>
       )}
 
       {/* Anomalies */}
       {data && (
         <section>
-          <h3 style={{ color: 'var(--t3)', marginBottom: '6px' }}>Unusual Days</h3>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '20px' }}>
-            Days where revenue was unusually high or low.
+          <h3 style={{ marginBottom: '4px' }}>Unusual days</h3>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.78rem', color: 'var(--t2)', marginBottom: '16px' }}>
+            Dates that came in well above or below your normal takings.
           </p>
 
           {data.anomalies.length === 0 ? (
-            <div style={{
-              backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-card)', padding: '32px', textAlign: 'center',
-              boxShadow: 'var(--shadow-sm)',
-            }}>
+            <Card padding="28px" style={{ textAlign: 'center' }}>
               <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem' }}>
-                No unusual days detected — your revenue is consistent.
+                Nothing stood out. Takings have been steady.
               </p>
-            </div>
+            </Card>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {data.anomalies.map((a, i) => {
                 const isSpike = a.direction === 'spike'
-                const color = isSpike ? '#16a34a' : '#dc2626'
+                const t: Tone = isSpike ? 'positive' : 'negative'
+                const Icon = isSpike ? TrendingUp : TrendingDown
                 return (
-                  <div
+                  <Card
                     key={i}
-                    className="fade-up anomaly-row"
+                    accent={t}
+                    padding="13px 18px"
+                    className={'fade-up anomaly-row'}
                     style={{
-                      animationDelay: `${i * 40}ms`, opacity: 0,
-                      display: 'flex', alignItems: 'center', gap: '16px',
-                      backgroundColor: 'var(--surface)', border: '1px solid var(--border)',
-                      borderLeft: `4px solid ${color}`, borderRadius: 'var(--radius-card)',
-                      padding: '14px 20px', boxShadow: 'var(--shadow-xs)',
+                      animationDelay: `${i * 40}ms`,
+                      opacity: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '14px',
                     }}
                   >
-                    <span style={{ fontSize: '1.1rem', flexShrink: 0 }}>{isSpike ? '📈' : '📉'}</span>
+                    <Icon {...iconProps} aria-hidden />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.85rem', color: 'var(--t2)', marginBottom: '2px' }}>
+                      <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.85rem', color: 'var(--t1)', marginBottom: '2px' }}>
                         {a.date_label || a.date}
                         {a.auto_label && <span style={{ fontWeight: 400, color: 'var(--t2)', marginLeft: '8px', fontSize: '0.78rem' }}>· {a.auto_label}</span>}
                       </div>
@@ -226,14 +218,14 @@ export default function OverviewPage() {
                       )}
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '1.3rem', fontWeight: 500, color }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: '1.15rem', fontWeight: 500, color: tone(t).fg }}>
                         {currency}{a.revenue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </div>
                       <div style={{ fontFamily: 'var(--font-body)', fontSize: '0.68rem', color: 'var(--t2)', marginTop: '1px' }}>
                         {a.pct_above > 0 ? '+' : ''}{Math.abs(a.pct_above).toFixed(0)}% vs typical
                       </div>
                     </div>
-                  </div>
+                  </Card>
                 )
               })}
             </div>
@@ -242,29 +234,21 @@ export default function OverviewPage() {
       )}
 
       {loading && !data && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '8px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
             <SkeletonMetric /><SkeletonMetric /><SkeletonMetric />
           </div>
           <SkeletonRecommendation />
           <SkeletonRecommendation />
         </div>
       )}
+
       {!data && !loading && !error && (
-        <div style={{
-          backgroundColor: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-card)',
-          padding: '48px 28px',
-          textAlign: 'center',
-          boxShadow: 'var(--shadow-sm)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📊</div>
-          <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>No data available</div>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.65 }}>
-            Upload a file with at least 30 days of sales history to unlock the Overview.
-          </p>
-        </div>
+        <EmptyState
+          icon={<BarChart3 {...emptyIconProps} aria-hidden />}
+          title="No data available"
+          description="This view needs at least 30 days of sales history. Upload a longer export to see it."
+        />
       )}
     </div>
   )

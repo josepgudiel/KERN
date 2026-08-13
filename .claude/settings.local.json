@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 -c \":*)"
+      "Bash(python3 -c \":*)",
+      "Bash(perl -pi -e \"s/'#16a34a'/'var\\(--green\\)'/g; s/'#dc2626'/'var\\(--red\\)'/g; s/\\\\\"#dc2626\\\\\"/\\\\\"var\\(--red\\)\\\\\"/g; s/'4px solid #dc2626'/'3px solid var\\(--red\\)'/g\" components/UploadZone.tsx components/AdvisorChat.tsx)",
+      "Bash(echo \"remaining: $?\")",
+      "Bash(perl -pi -e \"s/color: '#b3e5fe',/color: 'var\\(--sky\\)',/; s/'3px solid #394f9a'/'3px solid var\\(--blue\\)'/; s/= '#4762b8'/= 'var\\(--blue-hover\\)'/\" components/RecommendationCard.tsx)",
+      "Bash(npx tsc *)",
+      "Bash(perl -pi -e \"s/color: 'var\\\\\\(--t3\\\\\\)'/color: 'var\\(--t2\\)'/g; s/color: \\\\\"var\\\\\\(--t3\\\\\\)\\\\\"/color: \\\\\"var\\(--t2\\)\\\\\"/g\" components/RecommendationCard.tsx components/ChartCard.tsx components/ClusterCard.tsx components/Sidebar.tsx components/ConfidenceBadge.tsx app/dashboard/layout.tsx)",
+      "Bash(perl -pi -e \"s/e\\\\.currentTarget\\\\.style\\\\.color = 'var\\\\\\(--t3\\\\\\)'/e.currentTarget.style.color = 'var\\(--t2\\)'/g\" components/Sidebar.tsx)",
+      "Bash(perl -pi -e \"s/: 'var\\\\\\(--sky\\\\\\)' : 'var\\\\\\(--t3\\\\\\)'/: 'var\\(--sky\\)' : 'var\\(--t2\\)'/g\" app/dashboard/layout.tsx components/Sidebar.tsx)",
+      "Bash(perl -pi -e \"s/\\\\? 'var\\\\\\(--sky\\\\\\)' : 'var\\\\\\(--t3\\\\\\)'/? 'var\\(--sky\\)' : 'var\\(--t2\\)'/g\" app/dashboard/layout.tsx components/Sidebar.tsx)",
+      "Bash(sed 's/^\\\\.\\\\///')",
+      "Bash(echo \"exit=$?\")",
+      "Bash(python3 -c ' *)",
+      "Bash(npx next *)",
+      "Bash(./node_modules/.bin/tsc --noEmit)",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(grep -rn 'className=\"card\\\\|className={`card\\\\|className=\"[^\"]*\\\\bcard\\\\b' --include='*.tsx' app components)",
+      "Bash(echo \"TSC=$?\")",
+      "Bash(./node_modules/.bin/next lint *)"
     ]
   }
 }

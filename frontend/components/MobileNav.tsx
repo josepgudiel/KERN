@@ -21,7 +21,7 @@ const PAGE_TITLES: Record<string, string> = {
 
 export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavProps) {
   const pathname = usePathname()
-  const pageTitle = PAGE_TITLES[pathname] || 'KERN'
+  const pageTitle = PAGE_TITLES[pathname] || 'Kern'
 
   return (
     <nav
@@ -39,7 +39,7 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
         gap: '12px',
         backgroundColor: 'var(--bg-card)',
         borderBottom: '1px solid var(--border)',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+        boxShadow: 'var(--shadow-xs)',
       }}
     >
       {/* Hamburger / Close button */}
@@ -53,11 +53,11 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
           width: '40px',
           height: '40px',
           flexShrink: 0,
-          background: isSidebarOpen ? 'var(--sky-10)' : 'var(--bg-mid)',
+          background: isSidebarOpen ? 'var(--accent-dim)' : 'var(--bg-mid)',
           border: `1px solid ${isSidebarOpen ? 'var(--sky-20)' : 'var(--border)'}`,
           borderRadius: 'var(--radius)',
           cursor: 'pointer',
-          color: isSidebarOpen ? 'var(--sky)' : 'var(--t2)',
+          color: isSidebarOpen ? 'var(--accent)' : 'var(--t1)',
           transition: 'all 0.15s ease',
         }}
       >
@@ -76,12 +76,11 @@ export default function MobileNav({ isSidebarOpen, onToggleSidebar }: MobileNavP
       <div style={{
         flex: 1,
         textAlign: 'center',
-        fontFamily: 'var(--font-display)',
-        fontWeight: 800,
-        fontSize: '0.82rem',
+        fontFamily: 'var(--font-heading)',
+        fontWeight: 600,
+        fontSize: '0.95rem',
         color: 'var(--t1)',
-        letterSpacing: '0.16em',
-        textTransform: 'uppercase',
+        letterSpacing: '-0.01em',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',

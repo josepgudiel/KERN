@@ -1,22 +1,26 @@
 'use client'
 
 import { useState } from 'react'
+import { ArrowRight, Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { Recommendation } from '@/types'
 
 /* ─── Urgency badge config ──────────────────────────────────────────────── */
 
-const URGENCY_STYLES: Record<string, { bg: string; color: string }> = {
+const URGENCY_STYLES: Record<string, { bg: string; color: string; edge: string }> = {
   'Act this week': {
-    bg: 'rgba(179,229,254,0.15)',
-    color: '#b3e5fe',
+    bg: 'var(--accent-dim)',
+    color: 'var(--accent)',
+    edge: '#eccdb8',
   },
   'Worth doing soon': {
-    bg: 'rgba(251,191,36,0.15)',
+    bg: 'var(--warning-dim)',
     color: 'var(--amber)',
+    edge: '#e6d3a8',
   },
   'Plan for next month': {
-    bg: 'var(--sky-06)',
-    color: 'var(--t3)',
+    bg: 'var(--bg-alt)',
+    color: 'var(--t2)',
+    edge: 'var(--border)',
   },
 }
 
@@ -45,17 +49,22 @@ export default function RecommendationCard({
         animationDelay: `${delay}ms`,
         opacity: 0,
         backgroundColor: 'var(--bg-card)',
+        /* No coloured strip down the edge: confidence is already stated in
+           words in the footer, and a rule per card turns a ranked list into a
+           colour chart. The card is a hairline, a shadow and its contents. */
         border: '1px solid var(--border)',
-        borderLeft: rec.confidence === 'high' ? '3px solid var(--sky)' : '3px solid #394f9a',
         borderRadius: 'var(--radius-card)',
+        boxShadow: 'var(--shadow-xs)',
         overflow: 'hidden',
-        transition: 'border-color 0.2s ease',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
       }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = 'var(--border2)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.borderColor = 'var(--border)'
+        e.currentTarget.style.boxShadow = 'var(--shadow-xs)'
       }}
     >
       <div style={{ padding: '22px 24px' }}>
@@ -67,12 +76,12 @@ export default function RecommendationCard({
               padding: '3px 10px',
               borderRadius: '4px',
               backgroundColor: urgency.bg,
+              border: `1px solid ${urgency.edge}`,
               color: urgency.color,
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.58rem',
-              fontWeight: 500,
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.72rem',
+              fontWeight: 600,
+              letterSpacing: '-0.002em',
             }}
           >
             {rec.urgency_label}
@@ -80,20 +89,7 @@ export default function RecommendationCard({
         </div>
 
         {/* Title */}
-        <div
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 800,
-            fontSize: '1rem',
-            color: 'var(--t1)',
-            lineHeight: 1.4,
-            marginBottom: '10px',
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-          }}
-        >
-          {rec.title}
-        </div>
+        <h3 style={{ marginBottom: '10px' }}>{rec.title}</h3>
 
         {/* Body */}
         <div
@@ -122,12 +118,14 @@ export default function RecommendationCard({
                 gap: '5px',
                 padding: '3px 9px',
                 backgroundColor: 'var(--positive-dim)',
+                border: '1px solid #bfe0d2',
                 borderRadius: '4px',
+                /* A dollar figure — mono, tabular. */
                 fontFamily: 'var(--font-mono)',
-                fontSize: '0.6rem',
+                fontVariantNumeric: 'tabular-nums',
+                fontSize: '0.68rem',
                 fontWeight: 500,
                 color: 'var(--green)',
-                letterSpacing: '0.04em',
               }}
             >
               ~${rec.impact_estimate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo potential
@@ -135,19 +133,25 @@ export default function RecommendationCard({
             {rec.margin_pct != null && (
               <span
                 style={{
-                  marginLeft: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '3px',
+                  marginLeft: '8px',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '0.55rem',
-                  color: rec.margin_source === 'provided' ? 'var(--green)' : 'var(--t3)',
-                  letterSpacing: '0.04em',
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: '0.64rem',
+                  color: rec.margin_source === 'provided' ? 'var(--green)' : 'var(--t2)',
                 }}
                 title={
                   rec.margin_source === 'provided'
                     ? `Profit impact using your ${Math.round(rec.margin_pct * 100)}% margin`
-                    : `Profit estimate using default 65% margin — enter your actual margin at upload for accuracy`
+                    : `Profit estimate using a default 65% margin. Enter your own at upload for a precise figure.`
                 }
               >
-                {rec.margin_source === 'provided' ? '✓' : '~'}{Math.round(rec.margin_pct * 100)}% margin
+                {rec.margin_source === 'provided'
+                  ? <Check size={10} strokeWidth={2.5} aria-hidden />
+                  : '~'}
+                {Math.round(rec.margin_pct * 100)}% margin
               </span>
             )}
           </div>
@@ -177,11 +181,10 @@ export default function RecommendationCard({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '12px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.6rem',
-              color: 'var(--t3)',
-              letterSpacing: '0.04em',
+              gap: '10px',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.72rem',
+              color: 'var(--t2)',
             }}
           >
             {/* Confidence tag */}
@@ -189,13 +192,14 @@ export default function RecommendationCard({
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '5px',
+                gap: '6px',
                 padding: '2px 8px',
-                background: 'rgba(179,229,254,0.04)',
+                background: 'var(--bg-alt)',
                 border: '1px solid var(--border)',
                 borderRadius: '4px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '9px',
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 500,
+                fontSize: '0.72rem',
               }}
             >
               <span
@@ -212,16 +216,16 @@ export default function RecommendationCard({
               />
               {rec.confidence === 'high' ? 'High' : 'Moderate'} confidence
             </span>
-            <span style={{ color: 'var(--border2)' }}>&middot;</span>
-            {/* Transactions tag */}
+            {/* Transactions tag — a count, so the figure keeps the mono. */}
             <span
               style={{
                 padding: '2px 8px',
-                background: 'rgba(179,229,254,0.04)',
+                background: 'var(--bg-alt)',
                 border: '1px solid var(--border)',
                 borderRadius: '4px',
                 fontFamily: 'var(--font-mono)',
-                fontSize: '9px',
+                fontVariantNumeric: 'tabular-nums',
+                fontSize: '0.68rem',
               }}
             >
               {rec.transaction_count.toLocaleString()} transactions
@@ -234,31 +238,32 @@ export default function RecommendationCard({
               flexShrink: 0,
               padding: '8px 16px',
               minHeight: '40px',
-              backgroundColor: 'var(--blue)',
-              border: 'none',
-              borderRadius: 'var(--radius)',
-              fontFamily: 'var(--font-display)',
-              fontSize: '0.58rem',
-              fontWeight: 700,
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
-              color: 'var(--t1)',
+              backgroundColor: 'var(--accent)',
+              border: '1px solid var(--accent)',
+              borderRadius: '6px',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.84rem',
+              fontWeight: 600,
+              letterSpacing: '-0.005em',
+              color: '#ffffff',
               cursor: onDismiss ? 'pointer' : 'default',
-              transition: 'all 0.15s ease',
+              transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
               whiteSpace: 'nowrap',
               opacity: onDismiss ? 1 : 0.5,
             }}
             onMouseEnter={(e) => {
               if (!onDismiss) return
-              e.currentTarget.style.background = '#4762b8'
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(57,79,154,0.4)'
+              e.currentTarget.style.background = 'var(--lp-accent-dark)'
+              e.currentTarget.style.borderColor = 'var(--lp-accent-dark)'
+              e.currentTarget.style.boxShadow = '0 4px 14px rgba(180,83,31,0.26)'
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--blue)'
+              e.currentTarget.style.background = 'var(--accent)'
+              e.currentTarget.style.borderColor = 'var(--accent)'
               e.currentTarget.style.boxShadow = 'none'
             }}
           >
-            Done
+            Mark as done
           </button>
         </div>
 
@@ -274,11 +279,11 @@ export default function RecommendationCard({
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '0.62rem',
+              fontFamily: 'var(--font-heading)',
+              fontSize: '0.8rem',
               fontWeight: 500,
-              letterSpacing: '0.06em',
-              color: 'var(--sky)',
+              letterSpacing: '-0.004em',
+              color: 'var(--accent)',
               transition: 'opacity 0.15s ease',
               marginBottom: expanded ? '0' : undefined,
             }}
@@ -289,7 +294,10 @@ export default function RecommendationCard({
               e.currentTarget.style.opacity = '1'
             }}
           >
-            {expanded ? '▼' : '▶'} Show data behind this ({rec.proof.sample_size.toLocaleString()} txns)
+            {expanded
+              ? <ChevronDown size={13} strokeWidth={2} aria-hidden />
+              : <ChevronRight size={13} strokeWidth={2} aria-hidden />}
+            Show the data behind this ({rec.proof.sample_size.toLocaleString()} transactions)
           </button>
         )}
 
@@ -319,15 +327,14 @@ export default function RecommendationCard({
               <div style={{ minWidth: '100px' }}>
                 <div
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 500,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--t3)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.002em',
+                    color: 'var(--t2)',
                     marginBottom: '3px',
                     padding: '2px 8px',
-                    background: 'rgba(179,229,254,0.04)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '4px',
                     display: 'inline-block',
@@ -338,6 +345,7 @@ export default function RecommendationCard({
                 <div
                   style={{
                     fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
                     fontSize: '0.85rem',
                     fontWeight: 500,
                     color: 'var(--t1)',
@@ -352,15 +360,14 @@ export default function RecommendationCard({
               <div style={{ minWidth: '100px' }}>
                 <div
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 500,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--t3)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.002em',
+                    color: 'var(--t2)',
                     marginBottom: '3px',
                     padding: '2px 8px',
-                    background: 'rgba(179,229,254,0.04)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '4px',
                     display: 'inline-block',
@@ -371,6 +378,7 @@ export default function RecommendationCard({
                 <div
                   style={{
                     fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
                     fontSize: '0.85rem',
                     fontWeight: 500,
                     color: 'var(--t1)',
@@ -385,15 +393,14 @@ export default function RecommendationCard({
               <div style={{ minWidth: '100px' }}>
                 <div
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 500,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--t3)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.002em',
+                    color: 'var(--t2)',
                     marginBottom: '3px',
                     padding: '2px 8px',
-                    background: 'rgba(179,229,254,0.04)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '4px',
                     display: 'inline-block',
@@ -404,6 +411,7 @@ export default function RecommendationCard({
                 <div
                   style={{
                     fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
                     fontSize: '0.85rem',
                     fontWeight: 500,
                     color: 'var(--t1)',
@@ -412,7 +420,7 @@ export default function RecommendationCard({
                 >
                   {rec.proof.key_metric.value != null
                     ? rec.proof.key_metric.value.toFixed(2)
-                    : '—'}
+                    : 'n/a'}
                   {rec.proof.key_metric.interpretation && (
                     <span
                       style={{
@@ -420,7 +428,7 @@ export default function RecommendationCard({
                         fontFamily: 'var(--font-body)',
                         fontSize: '0.72rem',
                         fontWeight: 400,
-                        color: 'var(--t3)',
+                        color: 'var(--t2)',
                       }}
                     >
                       ({rec.proof.key_metric.interpretation})
@@ -433,15 +441,14 @@ export default function RecommendationCard({
               <div style={{ minWidth: '80px' }}>
                 <div
                   style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    fontWeight: 500,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: 'var(--t3)',
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    letterSpacing: '-0.002em',
+                    color: 'var(--t2)',
                     marginBottom: '3px',
                     padding: '2px 8px',
-                    background: 'rgba(179,229,254,0.04)',
+                    background: 'var(--bg-card)',
                     border: '1px solid var(--border)',
                     borderRadius: '4px',
                     display: 'inline-block',
@@ -473,9 +480,9 @@ export default function RecommendationCard({
                   />
                   <span
                     style={{
-                      fontFamily: 'var(--font-mono)',
+                      fontFamily: 'var(--font-heading)',
                       fontSize: '0.85rem',
-                      fontWeight: 500,
+                      fontWeight: 600,
                       color:
                         rec.proof.confidence.color === 'green'
                           ? 'var(--green)'
@@ -524,11 +531,11 @@ export default function RecommendationCard({
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.62rem',
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.8rem',
                 fontWeight: 500,
-                letterSpacing: '0.06em',
-                color: 'var(--sky)',
+                letterSpacing: '-0.004em',
+                color: 'var(--accent)',
                 transition: 'opacity 0.15s ease',
               }}
               onMouseEnter={(e) => {
@@ -538,16 +545,15 @@ export default function RecommendationCard({
                 e.currentTarget.style.opacity = '1'
               }}
             >
-              See why{' '}
+              See why
               <span
                 style={{
-                  display: 'inline-block',
+                  display: 'inline-flex',
                   transition: 'transform 0.25s ease',
                   transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                  fontSize: '0.72rem',
                 }}
               >
-                &rarr;
+                <ArrowRight size={13} strokeWidth={2} aria-hidden />
               </span>
             </button>
             <div

@@ -57,7 +57,7 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "I ran into an issue \u2014 please try again.", timestamp: new Date(), isError: true },
+        { role: "assistant", content: "I ran into an issue. Please try again.", timestamp: new Date(), isError: true },
       ]);
     } finally {
       setTyping(false);
@@ -172,14 +172,13 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
               borderRadius: "20px",
               ...(msg.role === "user"
                 ? {
-                    background: "linear-gradient(145deg, #1e3a5f 0%, #152d4a 100%)",
-                    color: "#ffffff",
+                    backgroundColor: "var(--accent)",
+                    border: "1px solid var(--accent)",
                     borderTopRightRadius: "4px",
                   }
                 : {
-                    backgroundColor: "var(--surface-warm)",
-                    border: "1px solid var(--border-warm)",
-                    color: "var(--t2)",
+                    backgroundColor: "var(--bg-mid)",
+                    border: "1px solid var(--border)",
                     borderTopLeftRadius: "4px",
                   }),
             }}>
@@ -188,7 +187,9 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
                 fontSize: "0.88rem",
                 whiteSpace: "pre-wrap",
                 lineHeight: 1.65,
-                color: msg.isError ? "#dc2626" : (msg.role === "user" ? "#ffffff" : "var(--text-primary)"),
+                color: msg.isError
+                  ? "var(--red)"
+                  : msg.role === "user" ? "#ffffff" : "var(--t1)",
               }}>
                 {msg.content}
               </p>
@@ -196,8 +197,8 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
                 fontFamily: "var(--font-body)",
                 fontSize: "0.62rem",
                 marginTop: "6px",
-                opacity: 0.5,
-                color: msg.role === "user" ? "rgba(255,255,255,0.6)" : "var(--text-muted)",
+                opacity: msg.role === "user" ? 0.85 : 1,
+                color: msg.role === "user" ? "#ffffff" : "var(--t2)",
               }}>
                 {formatTime(msg.timestamp)}
               </p>
@@ -216,9 +217,9 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
               display: "flex",
               gap: "6px",
             }}>
-              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--sky)", borderRadius: "50%", animationDelay: "0ms" }} />
-              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--sky)", borderRadius: "50%", animationDelay: "150ms" }} />
-              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--sky)", borderRadius: "50%", animationDelay: "300ms" }} />
+              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--accent)", borderRadius: "50%", animationDelay: "0ms" }} />
+              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--accent)", borderRadius: "50%", animationDelay: "150ms" }} />
+              <span className="animate-bounce" style={{ width: "8px", height: "8px", backgroundColor: "var(--accent)", borderRadius: "50%", animationDelay: "300ms" }} />
             </div>
           </div>
         )}
@@ -259,7 +260,7 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
           onClick={() => send()}
           disabled={!input.trim() || typing}
           style={{
-            backgroundColor: "var(--navy)",
+            backgroundColor: "var(--accent)",
             color: "#ffffff",
             borderRadius: "14px",
             padding: "14px 16px",
@@ -275,12 +276,12 @@ export default function AdvisorChat({ businessProfile }: AdvisorChatProps) {
           }}
           onMouseEnter={(e) => {
             if (input.trim() && !typing) {
-              e.currentTarget.style.backgroundColor = "var(--accent)"
+              e.currentTarget.style.backgroundColor = "var(--lp-accent-dark)"
               e.currentTarget.style.transform = "translateY(-1px)"
             }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "var(--navy)"
+            e.currentTarget.style.backgroundColor = "var(--accent)"
             e.currentTarget.style.transform = "translateY(0)"
           }}
         >

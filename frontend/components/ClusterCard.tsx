@@ -1,20 +1,21 @@
 'use client'
 
+import { Coins, Gem, Star, TrendingDown, Package } from 'lucide-react'
 import type { Cluster } from '@/types'
+import { Card, iconProps, tone, type Tone } from '@/components/ui'
 
-const bgMap: Record<string, string> = {
-  'Stars':        'linear-gradient(145deg, #1e3a5f 0%, #152d4a 100%)',
-  'Cash Cows':    'linear-gradient(145deg, #4a6280 0%, #374a5e 100%)',
-  'Hidden Gems':  'linear-gradient(145deg, #166534 0%, #14532d 100%)',
-  'Low Activity': 'linear-gradient(145deg, #92400e 0%, #78350f 100%)',
+/* Stars = healthy, Cash Cows = steady, Hidden Gems = upside, Low Activity =
+   needs attention. The tone colours the icon only. Tinting four cards four
+   ways would turn a group of peers into a traffic light, and none of these is
+   an alert — they are just categories. */
+const CLUSTER_META: Record<string, { tone: Tone; Icon: typeof Star }> = {
+  'Stars':        { tone: 'positive', Icon: Star },
+  'Cash Cows':    { tone: 'info',     Icon: Coins },
+  'Hidden Gems':  { tone: 'info',     Icon: Gem },
+  'Low Activity': { tone: 'warning',  Icon: TrendingDown },
 }
 
-const iconMap: Record<string, string> = {
-  'Stars':        '\u2B50',
-  'Cash Cows':    '\uD83D\uDCB0',
-  'Hidden Gems':  '\uD83D\uDC8E',
-  'Low Activity': '\uD83D\uDCC9',
-}
+const FALLBACK = { tone: 'neutral' as Tone, Icon: Package }
 
 interface ClusterCardProps {
   cluster: Cluster
@@ -22,81 +23,66 @@ interface ClusterCardProps {
 }
 
 export default function ClusterCard({ cluster, currency = '$' }: ClusterCardProps) {
-  const bg = bgMap[cluster.label] ?? bgMap['Stars']
-  const icon = iconMap[cluster.label] ?? '\uD83D\uDCE6'
+  const { tone: clusterTone, Icon } = CLUSTER_META[cluster.label] ?? FALLBACK
 
   return (
-    <div
-      style={{
-        background: bg,
-        color: '#ffffff',
-        borderRadius: 'var(--radius-card)',
-        border: '1px solid rgba(147,197,253,0.10)',
-        boxShadow: 'var(--shadow-md)',
-        padding: 'clamp(16px, 3vw, 22px) clamp(14px, 3vw, 20px)',
-        transition: 'box-shadow 0.3s ease, transform 0.3s ease',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = 'var(--shadow-xl)'
-        e.currentTarget.style.transform = 'translateY(-4px)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
-        e.currentTarget.style.transform = 'translateY(0)'
-      }}
-    >
-      <h2 className="font-display cluster-heading" style={{
-        fontSize: 'clamp(1.1rem, 3vw, 1.4rem)',
-        fontWeight: 500,
-        color: '#ffffff',
-        marginBottom: '10px',
-        textTransform: 'none',
-        letterSpacing: '0.02em',
-        lineHeight: 1.2,
-      }}>
-        {icon} {cluster.label}
-      </h2>
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
+    <Card interactive padding="18px 20px">
+      {/* Heading */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+        <Icon {...iconProps} style={{ ...iconProps.style, color: tone(clusterTone).fg }} aria-hidden />
+        <h3 className="cluster-heading" style={{ margin: 0 }}>{cluster.label}</h3>
+      </div>
+
+      {/* Figures */}
+      <div style={{ display: 'flex', gap: '22px', marginBottom: '14px' }}>
         <div>
-          <span className="label-caps" style={{ color: 'rgba(147,197,253,0.65)', fontSize: '0.52rem' }}>Avg Revenue</span>
-          <p className="number-display" style={{ color: '#ffffff', fontSize: '1.3rem', marginTop: '2px' }}>
+          <div className="ui-label">Average revenue</div>
+          <p className="number-display" style={{ fontSize: '1.25rem', marginTop: '5px' }}>
             {currency}{cluster.avg_revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
         </div>
         <div>
-          <span className="label-caps" style={{ color: 'rgba(147,197,253,0.65)', fontSize: '0.52rem' }}>Avg Qty</span>
-          <p className="number-display" style={{ color: '#ffffff', fontSize: '1.3rem', marginTop: '2px' }}>
+          <div className="ui-label">Average quantity</div>
+          <p className="number-display" style={{ fontSize: '1.25rem', marginTop: '5px' }}>
             {cluster.avg_quantity.toLocaleString()}
           </p>
         </div>
       </div>
+
+      {/* Members */}
       <ul style={{
         fontFamily: 'var(--font-body)',
         fontSize: '0.78rem',
-        color: '#93c5fd',
+        color: 'var(--t2)',
         marginBottom: '12px',
         listStyle: 'none',
         padding: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '2px',
+        gap: '3px',
       }}>
         {cluster.products.slice(0, 6).map((p) => (
-          <li key={p}>&bull; {p}</li>
+          <li key={p} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {p}
+          </li>
         ))}
         {cluster.products.length > 6 && (
-          <li style={{ color: 'rgba(255,255,255,0.5)' }}>+{cluster.products.length - 6} more</li>
+          <li style={{ color: 'var(--t2)' }}>+{cluster.products.length - 6} more</li>
         )}
       </ul>
+
+      {/* Recommended action */}
       <p style={{
+        paddingTop: '12px',
+        borderTop: '1px solid var(--border)',
         fontFamily: 'var(--font-body)',
-        fontStyle: 'italic',
-        fontSize: '0.75rem',
-        color: 'rgba(255,255,255,0.7)',
-        lineHeight: 1.55,
+        fontSize: '0.78rem',
+        color: 'var(--t2)',
+        lineHeight: 1.6,
+        margin: 0,
       }}>
         {cluster.action}
       </p>
-    </div>
+    </Card>
   )
 }

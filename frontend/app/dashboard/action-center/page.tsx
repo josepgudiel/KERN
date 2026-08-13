@@ -9,6 +9,8 @@ import MetricCard from '@/components/MetricCard'
 import RecommendationCard from '@/components/RecommendationCard'
 import ErrorCard from '@/components/ErrorCard'
 import { SkeletonMetric, SkeletonRecommendation } from '@/components/SkeletonCard'
+import { Card, EmptyState, PageHeader, emptyIconProps } from '@/components/ui'
+import { CheckCircle2, ListChecks } from 'lucide-react'
 
 export default function ActionCenterPage() {
   const { sessionId, uploadMeta } = useSession()
@@ -50,74 +52,41 @@ export default function ActionCenterPage() {
   const visibleRecs = data?.recommendations?.filter((r: { id: string }) => !dismissed.has(r.id)) ?? []
   const actionCount = visibleRecs.length
 
+  /* The API wraps this line in markdown emphasis, but nothing in the dashboard
+     renders markdown — it was printing the asterisks. Strip the wrapper and let
+     CSS carry the emphasis; the sentence itself is untouched. */
+  const confidenceNote = data?.data_confidence_badge?.replace(/^\*+|\*+$/g, '').trim()
+
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(24px, 5vw, 44px)' }}>
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.60rem',
-          fontWeight: 700,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--accent)',
-          marginBottom: '12px',
-        }}>
-          Action Center
-        </div>
-        <h1 className="accent-underline" style={{ marginBottom: '20px' }}>
-          Action Center
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.88rem',
-          color: 'var(--text-secondary)',
-          maxWidth: '480px',
-          lineHeight: 1.7,
-          marginTop: '14px',
-        }}>
-          {data
-            ? `${actionCount} action${actionCount !== 1 ? 's' : ''} require${actionCount === 1 ? 's' : ''} attention today, ranked by revenue impact.`
-            : 'The most important things to act on today, ranked by estimated revenue impact.'}
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="Action Center"
+        context={data
+          ? `${actionCount} action${actionCount !== 1 ? 's' : ''} need${actionCount === 1 ? 's' : ''} attention today, ranked by revenue impact.`
+          : 'What to deal with today, in order of what it is worth.'}
+      />
 
-      {error && <div style={{ marginBottom: '24px' }}><ErrorCard message={error} onRetry={retry} /></div>}
+      {error && <div style={{ marginBottom: '20px' }}><ErrorCard message={error} onRetry={retry} /></div>}
 
       {slow && loading && (
-        <div style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderLeft: '3px solid var(--warning)',
-          borderRadius: 'var(--radius-card)',
-          padding: '16px 20px',
-          marginBottom: '24px',
-        }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-            This is taking longer than usual. The server may be starting up — try refreshing in a moment.
+        <Card accent="warning" padding="16px 20px" style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.82rem' }}>
+            Still working. The server may be waking up, so give it a few seconds.
           </p>
-        </div>
+        </Card>
       )}
 
       {/* Health Brief */}
       {data?.health_brief && (
-        <div className="fade-up" style={{
-          backgroundColor: 'var(--bg-surface)',
-          border: '1px solid var(--border)',
-          borderLeft: '3px solid var(--accent)',
-          borderRadius: 'var(--radius-card)',
-          padding: '20px 22px',
-          marginBottom: '28px',
-        }}>
-          <h3 style={{ marginBottom: '10px' }}>Business Summary</h3>
+        <Card className="fade-up" padding="22px 24px" style={{ marginBottom: '20px' }}>
+          <h3 style={{ marginBottom: '10px' }}>Business summary</h3>
           <p style={{ fontSize: '0.85rem', marginBottom: '8px' }}>
             {data.health_brief.paragraph_1}
           </p>
           <p style={{ fontSize: '0.85rem' }}>
             {data.health_brief.paragraph_2}
           </p>
-        </div>
+        </Card>
       )}
 
       {/* Metrics */}
@@ -125,18 +94,18 @@ export default function ActionCenterPage() {
         display: 'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
         gap: '12px',
-        marginBottom: '28px',
+        marginBottom: '20px',
       }}
         className="grid-keep-2 lg:!grid-cols-4"
       >
         {data ? (
           <>
-            <MetricCard label="Total Revenue" value={fmt(data.metrics.total_revenue)} delay={0} accent />
-            <MetricCard label="Total Orders" value={data.metrics.total_orders.toLocaleString()} delay={50} />
-            <MetricCard label="Avg Order Value" value={fmt(data.metrics.avg_order_value)} delay={100} />
+            <MetricCard label="Total revenue" value={fmt(data.metrics.total_revenue)} delay={0} />
+            <MetricCard label="Total orders" value={data.metrics.total_orders.toLocaleString()} delay={50} />
+            <MetricCard label="Average order value" value={fmt(data.metrics.avg_order_value)} delay={100} />
             {data.metrics.wow_pct != null ? (
               <MetricCard
-                label="Week-over-Week"
+                label="Week over week"
                 value={`${data.metrics.wow_pct > 0 ? '+' : ''}${data.metrics.wow_pct.toFixed(1)}%`}
                 delta="vs prior week"
                 deltaPositive={data.metrics.wow_pct >= 0}
@@ -144,14 +113,14 @@ export default function ActionCenterPage() {
               />
             ) : data.metrics.wow_stale_note ? (
               <MetricCard
-                label="Week-over-Week"
-                value="—"
+                label="Week over week"
+                value="n/a"
                 delta={data.metrics.wow_stale_note}
                 delay={150}
               />
             ) : (
               <MetricCard
-                label="Unique Products"
+                label="Unique products"
                 value={data.metrics.unique_products.toString()}
                 delay={150}
               />
@@ -182,36 +151,15 @@ export default function ActionCenterPage() {
                 />
               ))
           ) : (
-            <div style={{
-              backgroundColor: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-card)',
-              padding: '48px 28px',
-              textAlign: 'center',
-            }}>
-              <div style={{
-                fontFamily: 'var(--font-mono)',
-                fontSize: '0.60rem',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--accent)',
-                marginBottom: '10px',
-              }}>
-                {dismissed.size > 0 ? 'All caught up' : 'Not enough data yet'}
-              </div>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--text-muted)',
-                fontSize: '0.82rem',
-                maxWidth: '380px',
-                margin: '0 auto',
-                lineHeight: 1.65,
-              }}>
-                {dismissed.size > 0
-                  ? "You've marked all recommendations as done. Upload fresh data to get new insights."
-                  : 'We need at least 14 transactions to generate reliable recommendations. Upload a larger dataset to unlock the Action Center.'}
-              </p>
-            </div>
+            <EmptyState
+              icon={dismissed.size > 0
+                ? <CheckCircle2 {...emptyIconProps} aria-hidden />
+                : <ListChecks {...emptyIconProps} aria-hidden />}
+              title={dismissed.size > 0 ? 'All caught up' : 'Not enough data yet'}
+              description={dismissed.size > 0
+                ? "Everything here is marked done. Upload a fresher export when you have one."
+                : 'This page needs at least 14 transactions before it can rank anything. Try a file covering a longer period.'}
+            />
           )
         ) : (
           loading && <>
@@ -223,15 +171,16 @@ export default function ActionCenterPage() {
       </div>
 
       {/* Data confidence note */}
-      {data && (
+      {confidenceNote && (
         <p style={{
-          fontFamily: 'var(--font-mono)',
-          color: 'var(--text-muted)',
-          fontSize: '0.62rem',
+          fontFamily: 'var(--font-body)',
+          fontStyle: 'italic',
+          color: 'var(--t2)',
+          fontSize: '0.76rem',
           textAlign: 'center',
-          letterSpacing: '0.04em',
+          margin: 0,
         }}>
-          {data.data_confidence_badge}
+          {confidenceNote}
         </p>
       )}
     </div>

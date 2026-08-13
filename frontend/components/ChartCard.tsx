@@ -12,6 +12,7 @@ export default function ChartCard({
       backgroundColor: 'var(--bg-card)',
       border: '1px solid var(--border)',
       borderRadius: 'var(--radius-card)',
+      boxShadow: 'var(--shadow-xs)',
       padding: 'clamp(16px, 3vw, 24px) clamp(14px, 3vw, 24px) clamp(14px, 2vw, 20px)',
       transition: 'border-color 0.2s ease',
     }}
@@ -29,7 +30,7 @@ export default function ChartCard({
         <p style={{
           fontFamily: 'var(--font-body)',
           fontSize: '0.75rem',
-          color: 'var(--t3)',
+          color: 'var(--t2)',
           marginBottom: '18px',
           lineHeight: 1.5,
         }}>

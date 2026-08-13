@@ -1,37 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
+import { getCached, setCache } from '@/lib/cache'
+import { useOptionalDashboardControls } from '@/context/DashboardControlsContext'
 
-// ── Session cache (5-minute TTL) ──────────────────────────────────────────
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-
-export function getCached<T>(key: string): T | null {
-  try {
-    const raw = sessionStorage.getItem(key)
-    if (!raw) return null
-    const { data, timestamp } = JSON.parse(raw)
-    if (Date.now() - timestamp > CACHE_TTL) {
-      sessionStorage.removeItem(key)
-      return null
-    }
-    return data as T
-  } catch {
-    return null
-  }
-}
-
-export function setCache(key: string, data: unknown): void {
-  try {
-    sessionStorage.setItem(key, JSON.stringify({ data, timestamp: Date.now() }))
-  } catch { /* quota exceeded — ignore */ }
-}
-
-export function clearKernCache(): void {
-  const keys = Object.keys(sessionStorage)
-  for (const key of keys) {
-    if (key.startsWith('kern_cache_')) {
-      sessionStorage.removeItem(key)
-    }
-  }
-}
+// Cache helpers live in lib/cache; re-exported here so existing imports keep working.
+export { getCached, setCache, clearKernCache } from '@/lib/cache'
 
 // ── Page data hook with optional cache key ────────────────────────────────
 export function usePageData<T>(fetchFn: () => Promise<T>, cacheKey?: string) {
@@ -39,6 +11,10 @@ export function usePageData<T>(fetchFn: () => Promise<T>, cacheKey?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
   const [slow, setSlow]       = useState(false)
+
+  // Null outside /dashboard (e.g. the landing page), so the hook stays usable there.
+  const controls = useOptionalDashboardControls()
+  const refreshToken = controls?.refreshToken ?? 0
 
   const load = useCallback(async () => {
     // Check cache first
@@ -74,7 +50,9 @@ export function usePageData<T>(fetchFn: () => Promise<T>, cacheKey?: string) {
       setLoading(false)
       clearTimeout(timeout)
     }
-  }, [fetchFn, cacheKey])
+    // refreshToken participates so the toolbar's Refresh re-runs every mounted page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchFn, cacheKey, refreshToken])
 
   useEffect(() => { load() }, [load])
 

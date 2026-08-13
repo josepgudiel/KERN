@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { Clock } from 'lucide-react'
 import { useSession } from '@/context/SessionContext'
 import { getWhenToStaff } from '@/lib/api'
 import { usePageData } from '@/lib/hooks'
@@ -9,6 +10,7 @@ import ChartCard from '@/components/ChartCard'
 import ErrorCard from '@/components/ErrorCard'
 import { SkeletonRecommendation } from '@/components/SkeletonCard'
 import { CHART_COLORS, tooltipStyle, axisStyle } from '@/lib/chartConfig'
+import { Card, EmptyState, PageHeader, StatTile, emptyIconProps } from '@/components/ui'
 import {
   BarChart,
   Bar,
@@ -34,126 +36,69 @@ export default function WhenToStaffPage() {
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          marginBottom: '12px',
-        }}>
-          <div style={{ width: '28px', height: '1px', backgroundColor: 'var(--accent)' }} />
-          <span className="label-caps" style={{ color: 'var(--accent)' }}>
-            Operations
-          </span>
-        </div>
-        <h1 style={{ color: 'var(--t1)', marginBottom: '14px' }}>
-          When to Staff
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.92rem',
-          color: 'var(--t2)',
-          maxWidth: '500px',
-          lineHeight: 1.75,
-        }}>
-          Which days drive the most revenue and where to focus your team.
-        </p>
-        <div className="divider" style={{ marginTop: '24px' }} />
-      </div>
+      <PageHeader
+        title="When to Staff"
+        context="Which days of the week earn most, so you can put people where the trade is."
+      />
 
-      {error && <div style={{ marginBottom: '24px' }}><ErrorCard message={error} onRetry={retry} /></div>}
+      {error && <div style={{ marginBottom: '20px' }}><ErrorCard message={error} onRetry={retry} /></div>}
 
       {slow && loading && (
-        <div style={{
-          backgroundColor: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderLeft: '4px solid #d97706',
-          borderRadius: 'var(--radius-card)',
-          padding: '18px 22px',
-          marginBottom: '24px',
-          boxShadow: 'var(--shadow-xs)',
-        }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            This is taking longer than usual. The server may be starting up &mdash; try refreshing in a moment.
+        <Card accent="warning" padding="16px 20px" style={{ marginBottom: '20px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem' }}>
+            The server is slow to answer right now. Refresh if this does not clear.
           </p>
-        </div>
+        </Card>
       )}
 
       {data ? (
         <>
+          {/* Peak / Slowest */}
+          <div className="grid-keep-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <StatTile
+              className="fade-up"
+              label="Peak day"
+              value={data.peak_day ?? 'No data'}
+              valueTone={data.peak_day ? 'positive' : undefined}
+            />
+            <StatTile
+              className="fade-up fade-up-delay-1"
+              label="Slowest day"
+              value={data.slowest_day ?? 'No data'}
+              valueTone={data.slowest_day ? 'negative' : undefined}
+            />
+          </div>
+
           {/* Staffing recommendation */}
           {data.has_dates ? (
             data.staffing_recommendation ? (
-              <div className="fade-up" style={{
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderLeft: '4px solid var(--accent)',
-                borderRadius: 'var(--radius-card)',
-                padding: '24px 26px',
-                marginBottom: '24px',
-                boxShadow: 'var(--shadow-sm)',
-              }}>
-                <h3 style={{ color: 'var(--accent)', marginBottom: '12px' }}>Staffing Recommendation</h3>
-                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-primary)', fontSize: '0.88rem', lineHeight: 1.75 }}>
+              <Card className="fade-up fade-up-delay-2" padding="20px 22px" style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginBottom: '10px' }}>Staffing recommendation</h3>
+                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.88rem', lineHeight: 1.75, margin: 0 }}>
                   {data.staffing_recommendation}
                 </p>
-              </div>
+              </Card>
             ) : (
-              <div className="fade-up" style={{
-                backgroundColor: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-card)',
-                padding: '24px 26px',
-                marginBottom: '24px',
-                boxShadow: 'var(--shadow-sm)',
-              }}>
-                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Not enough variation in your data to make a staffing recommendation yet.
+              <Card className="fade-up fade-up-delay-2" padding="20px 22px" style={{ marginBottom: '20px' }}>
+                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem', margin: 0 }}>
+                  The days look too alike so far to suggest anything useful.
                 </p>
-              </div>
+              </Card>
             )
           ) : (
-            <div className="fade-up" style={{
-              backgroundColor: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-card)',
-              padding: '40px 28px',
-              textAlign: 'center',
-              marginBottom: '24px',
-              boxShadow: 'var(--shadow-sm)',
-            }}>
-              <div style={{ fontSize: '2rem', marginBottom: '12px' }}>{'\uD83D\uDD50'}</div>
-              <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>Date Column Required</div>
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                color: 'var(--text-muted)',
-                fontSize: '0.85rem',
-                maxWidth: '360px',
-                margin: '0 auto',
-                lineHeight: 1.65,
-              }}>
-                Upload data with a date column to see which days of the week drive the most revenue.
-              </p>
+            <div className="fade-up fade-up-delay-2" style={{ marginBottom: '20px' }}>
+              <EmptyState
+                icon={<Clock {...emptyIconProps} aria-hidden />}
+                title="Date column required"
+                description="Add a date column to your export and this page will show how the week breaks down."
+              />
             </div>
           )}
-
-          {/* Peak / Slowest */}
-          <div className="grid-keep-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
-            <div className="card-navy fade-up fade-up-delay-1" style={{ padding: '22px 24px' }}>
-              <span className="label-caps" style={{ color: '#16a34a' }}>Peak Day</span>
-              <p className="number-display" style={{ color: '#ffffff', fontSize: '2rem', marginTop: '6px' }}>{data.peak_day ?? "No data"}</p>
-            </div>
-            <div className="card-navy fade-up fade-up-delay-2" style={{ padding: '22px 24px' }}>
-              <span className="label-caps" style={{ color: '#dc2626' }}>Slowest Day</span>
-              <p className="number-display" style={{ color: '#ffffff', fontSize: '2rem', marginTop: '6px' }}>{data.slowest_day ?? "No data"}</p>
-            </div>
-          </div>
 
           {/* Chart */}
           {data.has_dates && data.day_of_week.length > 0 && (
             <div className="fade-up fade-up-delay-3">
-              <ChartCard title="Revenue by Day of Week" caption="Average revenue per day across your dataset">
+              <ChartCard title="Revenue by day of week" caption="Average takings for each day, across the whole file">
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={data.day_of_week}>
                     <CartesianGrid strokeDasharray="3 3" stroke={CHART_COLORS.grid} vertical={false} />
@@ -161,7 +106,7 @@ export default function WhenToStaffPage() {
                     <YAxis tick={axisStyle.tick} axisLine={axisStyle.axisLine} tickLine={axisStyle.tickLine}
                            tickFormatter={(v: number) => v >= 1000 ? `$${(v/1000).toFixed(1)}K` : `$${v.toFixed(0)}`} />
                     <Tooltip {...tooltipStyle} />
-                    <Bar dataKey="avg_revenue" fill={CHART_COLORS.primary} radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="avg_revenue" fill={CHART_COLORS.primary} radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
@@ -169,25 +114,16 @@ export default function WhenToStaffPage() {
           )}
         </>
       ) : loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <SkeletonRecommendation />
           <SkeletonRecommendation />
         </div>
       ) : !error ? (
-        <div style={{
-          backgroundColor: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-card)',
-          padding: '48px 28px',
-          textAlign: 'center',
-          boxShadow: 'var(--shadow-sm)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🕐</div>
-          <div className="label-caps" style={{ color: 'var(--accent)', marginBottom: '10px' }}>No staffing data yet</div>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '360px', margin: '0 auto', lineHeight: 1.65 }}>
-            Upload a file with a date column to see which days of the week drive the most revenue.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Clock {...emptyIconProps} aria-hidden />}
+          title="No staffing data yet"
+          description="Once your export includes dates, you will see which days carry the week."
+        />
       ) : null}
     </div>
   )
