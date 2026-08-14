@@ -12,3 +12,9 @@ dist/
 build/
 .pytest_cache/
 .streamlit/
+
+# Local working files — kept on disk, not tracked
+AUDIT_*.md
+CLAUDE.md
+.claude/
+archive/
