@@ -90,11 +90,25 @@ export async function getDataSummary(sessionId: string): Promise<DataSummaryResp
   return request<DataSummaryResponse>(`${BASE}/data-summary?session_id=${sessionId}`);
 }
 
-export async function dismissRecommendation(sessionId: string, recId: string): Promise<{ ok: boolean }> {
+export async function dismissRecommendation(
+  sessionId: string,
+  recId: string,
+  status: 'done' | 'not_relevant',
+  reason?: string,
+  recType?: string,
+): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>(`${BASE}/dismiss`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, rec_id: recId }),
+    body: JSON.stringify({
+      session_id: sessionId,
+      rec_id: recId,
+      status,
+      // Blank input is no reason at all — don't record an empty string as feedback.
+      reason: reason?.trim() ? reason.trim() : null,
+      // rec_type can't be recovered from rec_id server-side (md5), so it travels here.
+      rec_type: recType ?? null,
+    }),
   });
 }
 

@@ -12,7 +12,7 @@ export interface UploadResponse {
   filename?: string;
   warning?: string | null;
   gross_margin: number;
-  margin_source: 'estimated' | 'provided';
+  margin_source: 'estimated' | 'calculated' | 'provided';
   has_cost_data: boolean;
   cost_column_name?: string | null;
 }
@@ -71,7 +71,7 @@ export interface Recommendation {
   generated_at: string;
   impact_estimate?: number | null;
   margin_pct?: number | null;
-  margin_source?: 'estimated' | 'provided' | null;
+  margin_source?: 'estimated' | 'calculated' | 'provided' | null;
   proof?: ProofData | null;
 }
 

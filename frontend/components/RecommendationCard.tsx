@@ -37,10 +37,34 @@ export default function RecommendationCard({
 }: {
   rec: Recommendation
   delay?: number
-  onDismiss?: (id: string) => void
+  onDismiss?: (id: string, status: 'done' | 'not_relevant', reason?: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  /* "Not relevant" opens a one-line reason field. The reason is optional by
+     design — the field is a chance to explain, never a toll gate, so dismissing
+     with it empty is a first-class path (Enter on an empty input works). */
+  const [reasonOpen, setReasonOpen] = useState(false)
+  const [reason, setReason] = useState('')
   const urgency = getUrgencyStyle(rec.urgency_label)
+
+  /* Margin provenance, resolved once and shared by the dollar figure and the
+     margin badge below it — the two must never disagree about whether the
+     number rests on the owner's real margin or on the 65% default.
+     'provided' and 'calculated' are both grounded in the owner's own numbers,
+     so they share the confident treatment; only 'estimated' is a guess. */
+  const marginPct = rec.margin_pct != null ? Math.round(rec.margin_pct * 100) : null
+  const isRealMargin =
+    rec.margin_source === 'provided' || rec.margin_source === 'calculated'
+  /* A defaulted margin scales the dollar impact just as silently as a real one,
+     so the figure carries the qualifier inline. A tooltip is not disclosure:
+     the number has to look like an estimate without being hovered. */
+  const marginIsDefault = rec.margin_pct != null && !isRealMargin
+
+  function confirmNotRelevant() {
+    onDismiss?.(rec.id, 'not_relevant', reason)
+    setReasonOpen(false)
+    setReason('')
+  }
 
   return (
     <div
@@ -129,31 +153,41 @@ export default function RecommendationCard({
               }}
             >
               ~${rec.impact_estimate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/mo potential
+              {marginIsDefault && (
+                <span
+                  style={{ opacity: 0.75, fontWeight: 400 }}
+                  title={`Scaled by a default ${marginPct}% margin, not your own. Enter your margin at upload for a precise figure.`}
+                >
+                  (est.)
+                </span>
+              )}
             </span>
-            {rec.margin_pct != null && (
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '3px',
-                  marginLeft: '8px',
-                  fontFamily: 'var(--font-mono)',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontSize: '0.64rem',
-                  color: rec.margin_source === 'provided' ? 'var(--green)' : 'var(--t2)',
-                }}
-                title={
-                  rec.margin_source === 'provided'
-                    ? `Profit impact using your ${Math.round(rec.margin_pct * 100)}% margin`
-                    : `Profit estimate using a default 65% margin. Enter your own at upload for a precise figure.`
-                }
-              >
-                {rec.margin_source === 'provided'
-                  ? <Check size={10} strokeWidth={2.5} aria-hidden />
-                  : '~'}
-                {Math.round(rec.margin_pct * 100)}% margin
-              </span>
-            )}
+            {marginPct != null && (() => {
+              const marginTitle =
+                rec.margin_source === 'provided'
+                  ? `Profit impact using your ${marginPct}% margin`
+                  : rec.margin_source === 'calculated'
+                    ? `Profit impact using your ${marginPct}% margin (calculated from your cost data)`
+                    : `Profit estimate using a default ${marginPct}% margin. Enter your own at upload for a precise figure.`;
+              return (
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    marginLeft: '8px',
+                    fontFamily: 'var(--font-mono)',
+                    fontVariantNumeric: 'tabular-nums',
+                    fontSize: '0.64rem',
+                    color: isRealMargin ? 'var(--green)' : 'var(--t2)',
+                  }}
+                  title={marginTitle}
+                >
+                  {isRealMargin ? <Check size={10} strokeWidth={2.5} aria-hidden /> : '~'}
+                  {marginPct}% margin
+                </span>
+              );
+            })()}
           </div>
         )}
 
@@ -232,40 +266,170 @@ export default function RecommendationCard({
             </span>
           </div>
 
-          <button
-            onClick={() => onDismiss?.(rec.id)}
+          {/* Two outcomes, deliberately not interchangeable: one asserts the user
+              acted, the other asserts the advice missed. Solid accent vs. ghost so
+              they can't be confused at a glance or hit by muscle memory. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+            <button
+              onClick={() => onDismiss?.(rec.id, 'done')}
+              disabled={!onDismiss}
+              style={{
+                flexShrink: 0,
+                padding: '8px 16px',
+                minHeight: '40px',
+                backgroundColor: 'var(--accent)',
+                border: '1px solid var(--accent)',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.84rem',
+                fontWeight: 600,
+                letterSpacing: '-0.005em',
+                color: '#ffffff',
+                cursor: onDismiss ? 'pointer' : 'default',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+                whiteSpace: 'nowrap',
+                opacity: onDismiss ? 1 : 0.5,
+              }}
+              onMouseEnter={(e) => {
+                if (!onDismiss) return
+                e.currentTarget.style.background = 'var(--lp-accent-dark)'
+                e.currentTarget.style.borderColor = 'var(--lp-accent-dark)'
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(180,83,31,0.26)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--accent)'
+                e.currentTarget.style.borderColor = 'var(--accent)'
+                e.currentTarget.style.boxShadow = 'none'
+              }}
+            >
+              I did this
+            </button>
+
+            <button
+              onClick={() => setReasonOpen((open) => !open)}
+              disabled={!onDismiss}
+              aria-expanded={reasonOpen}
+              style={{
+                flexShrink: 0,
+                padding: '8px 14px',
+                minHeight: '40px',
+                backgroundColor: reasonOpen ? 'var(--bg-alt)' : 'transparent',
+                border: `1px solid ${reasonOpen ? 'var(--border2)' : 'var(--border)'}`,
+                borderRadius: '6px',
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.84rem',
+                fontWeight: 500,
+                letterSpacing: '-0.005em',
+                color: reasonOpen ? 'var(--t1)' : 'var(--t2)',
+                cursor: onDismiss ? 'pointer' : 'default',
+                transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+                whiteSpace: 'nowrap',
+                opacity: onDismiss ? 1 : 0.5,
+              }}
+              onMouseEnter={(e) => {
+                if (!onDismiss) return
+                e.currentTarget.style.backgroundColor = 'var(--bg-alt)'
+                e.currentTarget.style.borderColor = 'var(--border2)'
+                e.currentTarget.style.color = 'var(--t1)'
+              }}
+              onMouseLeave={(e) => {
+                if (reasonOpen) return
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.color = 'var(--t2)'
+              }}
+            >
+              Not relevant
+            </button>
+          </div>
+        </div>
+
+        {/* Optional reason — revealed by "Not relevant", never required */}
+        {reasonOpen && (
+          <div
             style={{
-              flexShrink: 0,
-              padding: '8px 16px',
-              minHeight: '40px',
-              backgroundColor: 'var(--accent)',
-              border: '1px solid var(--accent)',
-              borderRadius: '6px',
-              fontFamily: 'var(--font-heading)',
-              fontSize: '0.84rem',
-              fontWeight: 600,
-              letterSpacing: '-0.005em',
-              color: '#ffffff',
-              cursor: onDismiss ? 'pointer' : 'default',
-              transition: 'background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-              whiteSpace: 'nowrap',
-              opacity: onDismiss ? 1 : 0.5,
-            }}
-            onMouseEnter={(e) => {
-              if (!onDismiss) return
-              e.currentTarget.style.background = 'var(--lp-accent-dark)'
-              e.currentTarget.style.borderColor = 'var(--lp-accent-dark)'
-              e.currentTarget.style.boxShadow = '0 4px 14px rgba(180,83,31,0.26)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--accent)'
-              e.currentTarget.style.borderColor = 'var(--accent)'
-              e.currentTarget.style.boxShadow = 'none'
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginBottom: '12px',
+              padding: '10px 12px',
+              backgroundColor: 'var(--bg-mid)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-card)',
             }}
           >
-            Mark as done
-          </button>
-        </div>
+            <input
+              autoFocus
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  confirmNotRelevant()
+                } else if (e.key === 'Escape') {
+                  setReasonOpen(false)
+                  setReason('')
+                }
+              }}
+              placeholder="Why doesn't this apply? (optional)"
+              maxLength={200}
+              aria-label="Reason this recommendation is not relevant (optional)"
+              style={{
+                flex: '1 1 220px',
+                minWidth: 0,
+                padding: '7px 10px',
+                minHeight: '36px',
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.8rem',
+                color: 'var(--t1)',
+                outline: 'none',
+              }}
+              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)' }}
+              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            />
+            <button
+              onClick={confirmNotRelevant}
+              style={{
+                flexShrink: 0,
+                padding: '7px 14px',
+                minHeight: '36px',
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border2)',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--t1)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Dismiss
+            </button>
+            <button
+              onClick={() => { setReasonOpen(false); setReason('') }}
+              style={{
+                flexShrink: 0,
+                padding: '7px 8px',
+                minHeight: '36px',
+                background: 'none',
+                border: 'none',
+                fontFamily: 'var(--font-heading)',
+                fontSize: '0.8rem',
+                fontWeight: 500,
+                color: 'var(--t2)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         {/* Proof layer toggle */}
         {rec.proof && (

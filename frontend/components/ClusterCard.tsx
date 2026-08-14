@@ -71,18 +71,23 @@ export default function ClusterCard({ cluster, currency = '$' }: ClusterCardProp
         )}
       </ul>
 
-      {/* Recommended action */}
-      <p style={{
-        paddingTop: '12px',
-        borderTop: '1px solid var(--border)',
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.78rem',
-        color: 'var(--t2)',
-        lineHeight: 1.6,
-        margin: 0,
-      }}>
-        {cluster.action}
-      </p>
+      {/* Recommended action. The backend can withhold this (see engine/flags.py),
+          in which case the whole row goes — the divider belongs to the advice,
+          not to the card, so rendering it empty would leave a rule under
+          nothing. */}
+      {cluster.action ? (
+        <p style={{
+          paddingTop: '12px',
+          borderTop: '1px solid var(--border)',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.78rem',
+          color: 'var(--t2)',
+          lineHeight: 1.6,
+          margin: 0,
+        }}>
+          {cluster.action}
+        </p>
+      ) : null}
     </Card>
   )
 }

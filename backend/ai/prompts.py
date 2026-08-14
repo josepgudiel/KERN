@@ -5,7 +5,7 @@ import re
 
 import pandas as pd
 
-from engine.safety import _has_dates
+from engine.safety import _has_dates, _has_hour_data
 from engine.insights import _detect_overview_insights, _find_rising_stars, _find_declining_products
 from engine.pricing import _get_price_recommendations
 from engine.apriori import _compute_basket_rules
@@ -237,19 +237,18 @@ def _build_data_context(df: pd.DataFrame, product_clusters, currency: str = "$",
 
     if _has_dates(df):
         df_time = df.copy()
-        df_time["hour"] = df_time["date"].dt.hour
         df_time["day_of_week"] = df_time["date"].dt.day_name()
-        by_hour = df_time.groupby("hour")["revenue"].sum()
         by_day = df_time.groupby("day_of_week")["revenue"].sum()
-        if not by_hour.empty and not by_day.empty:
-            peak_hour = by_hour.idxmax()
-            peak_day = by_day.idxmax()
+        if not by_day.empty:
             lines.append("\nPEAK TRADING TIMES:")
-            # H5: Only report busiest hour if the data actually has time variation
-            _has_time = df["date"].dt.hour.nunique() > 2
-            if _has_time:
-                lines.append(f"- Busiest hour: {peak_hour}:00")
-            lines.append(f"- Busiest day: {peak_day}")
+            # H5: Only report a busiest hour if the file actually carries
+            # time-of-day. This uses the same definition as the rest of the
+            # pipeline rather than a second local one.
+            if _has_hour_data(df):
+                by_hour = df_time.dropna(subset=["hour"]).groupby("hour")["revenue"].sum()
+                if not by_hour.empty:
+                    lines.append(f"- Busiest hour: {int(by_hour.idxmax())}:00")
+            lines.append(f"- Busiest day: {by_day.idxmax()}")
 
     agg_price = df.groupby("product").agg(
         quantity=("quantity", "sum"), revenue=("revenue", "sum")

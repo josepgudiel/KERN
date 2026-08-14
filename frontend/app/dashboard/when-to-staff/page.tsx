@@ -69,7 +69,12 @@ export default function WhenToStaffPage() {
             />
           </div>
 
-          {/* Staffing recommendation */}
+          {/* Staffing recommendation. The backend currently withholds this (see
+              engine/flags.py), so the card is absent rather than filled with a
+              stand-in. There is no "too alike to call" message any more: the
+              tiles above already name the peak and slowest day, and claiming the
+              week looked flat when we simply have nothing to add would be a
+              statement about the data that isn't true. */}
           {data.has_dates ? (
             data.staffing_recommendation ? (
               <Card className="fade-up fade-up-delay-2" padding="20px 22px" style={{ marginBottom: '20px' }}>
@@ -78,13 +83,7 @@ export default function WhenToStaffPage() {
                   {data.staffing_recommendation}
                 </p>
               </Card>
-            ) : (
-              <Card className="fade-up fade-up-delay-2" padding="20px 22px" style={{ marginBottom: '20px' }}>
-                <p style={{ fontFamily: 'var(--font-body)', color: 'var(--t2)', fontSize: '0.85rem', margin: 0 }}>
-                  The days look too alike so far to suggest anything useful.
-                </p>
-              </Card>
-            )
+            ) : null
           ) : (
             <div className="fade-up fade-up-delay-2" style={{ marginBottom: '20px' }}>
               <EmptyState

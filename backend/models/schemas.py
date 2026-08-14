@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing import Any
+from typing import Any, Literal
 
 
 class UploadResponse(BaseModel):
@@ -19,7 +19,7 @@ class UploadResponse(BaseModel):
     filename: str | None = None
     warning: str | None = None
     gross_margin: float = 0.65
-    margin_source: str = "estimated"  # "estimated" or "provided"
+    margin_source: str = "estimated"  # "estimated", "calculated" (from cost data), or "provided"
     has_cost_data: bool = False
     cost_column_name: str | None = None
 
@@ -77,7 +77,7 @@ class Recommendation(BaseModel):
     generated_at: str
     impact_estimate: float | None = None
     margin_pct: float | None = None      # Margin used in impact calculation
-    margin_source: str | None = None     # "estimated" or "provided"
+    margin_source: str | None = None     # "estimated" | "calculated" | "provided"
     proof: Proof | None = None
 
 
@@ -261,3 +261,13 @@ class ReportResponse(BaseModel):
 class DismissRequest(BaseModel):
     session_id: str
     rec_id: str
+    # "done" = the user acted on it; "not_relevant" = it did not apply to them.
+    # Both hide the card; only the recorded meaning differs. There is deliberately
+    # no "legacy_unspecified" here — that value exists only as the backfill for
+    # rows written before the split, and must never be settable over the API.
+    status: Literal["done", "not_relevant"]
+    reason: str | None = None
+    # rec_id is md5(rec_type + product)[:12], so rec_type cannot be recovered from
+    # it. The client sends it explicitly. Optional so a stale frontend bundle still
+    # dismisses successfully rather than 422-ing.
+    rec_type: str | None = None

@@ -41,6 +41,13 @@ DATE_SYNONYMS = [
     "date", "time", "created", "timestamp", "transaction date",
     "sale date", "order date", "datetime", "when", "day",
 ]
+# Clock-time columns that sit *beside* a date column. Square, Toast, and Clover
+# all export the calendar date and the time of day as two separate fields, so a
+# single DATE_SYNONYMS match finds the date and silently discards the time.
+TIME_OF_DAY_SYNONYMS = [
+    "time", "time of day", "order time", "transaction time", "sale time",
+    "check in time", "clock time", "receipt time", "sold at",
+]
 LOCATION_CANDIDATES = [
     "location", "store", "outlet", "branch", "place", "site", "shop", "venue",
     "store_name", "store name", "warehouse", "region", "territory",
@@ -113,8 +120,128 @@ def _find_col(df: pd.DataFrame, candidates: list) -> str | None:
     return None
 
 
+# Name fragments that look like a time column but never hold a clock time.
+_TIME_COL_EXCLUDE_TOKENS = ("zone", "offset")
+
+# "08:15", "8:15 AM", "20:15:32", "8 PM" — a colon or an am/pm token.
+_CLOCK_VALUE_RE = re.compile(r"\d{1,2}\s*:\s*\d{2}|\b[ap]\.?\s?m\.?\b", re.IGNORECASE)
+
+# Share of a candidate column's values that must look like clock times before it
+# is accepted as the time-of-day source.
+_MIN_CLOCK_VALUE_FRACTION = 0.5
+
+# Share of timestamps that must fall off exact midnight before a date column is
+# treated as carrying real time-of-day. See _resolve_hour_of_day.
+_MIN_NON_MIDNIGHT_FRACTION = 0.5
+
+
+def _looks_like_clock_column(series: pd.Series, sample: int = 500) -> bool:
+    """True if most non-null values in `series` actually look like clock times.
+
+    Name matching alone is not enough: `_find_col` matches on substrings, so
+    "time" also hits duration columns like "Prep Time" or "Lead Time" whose
+    values ("12", "4.5") parse into meaningless hours. This checks what the
+    column contains rather than what it is called.
+
+    Blanks are excluded from the ratio rather than counted against it. A real
+    Time column that is only half filled in is still a Time column; how much of
+    it is populated is a coverage question (_has_hour_data), and failing the
+    column here would discard the rows that *do* have a usable time.
+    """
+    vals = series.dropna()
+    if len(vals) > sample * 4:          # cap the string work on large uploads
+        vals = vals.head(sample * 4)
+    vals = vals.astype(str).str.strip()
+    vals = vals[~vals.str.lower().isin(_NON_NUMERIC_STRINGS)]
+    if vals.empty:
+        return False
+    if len(vals) > sample:
+        vals = vals.head(sample)
+    hits = sum(1 for v in vals if _CLOCK_VALUE_RE.search(v))
+    return hits >= len(vals) * _MIN_CLOCK_VALUE_FRACTION
+
+
+def _find_time_of_day_col(df: pd.DataFrame, exclude: str | None = None) -> str | None:
+    """Find a separate clock-time column, skipping `exclude` (the date column).
+
+    Guards on both the name (time *zone* / UTC *offset* columns are rejected)
+    and the values (duration columns are rejected by _looks_like_clock_column).
+    """
+    for cand in TIME_OF_DAY_SYNONYMS:
+        cand_clean = _normalize_col_name(cand.replace("_", " "))
+        for col in df.columns:
+            if not isinstance(col, str) or col == exclude:
+                continue
+            col_clean = _normalize_col_name(col)
+            if any(tok in col_clean for tok in _TIME_COL_EXCLUDE_TOKENS):
+                continue
+            if cand_clean in col_clean or col_clean in cand_clean:
+                if _looks_like_clock_column(df[col]):
+                    return col
+    return None
+
+
+def _parse_time_of_day(series: pd.Series) -> pd.Series:
+    """Parse clock-time strings permissively. Unparseable values become NaT.
+
+    The date part of the result is whatever pandas defaulted to and is
+    meaningless — callers must take only the time component.
+    """
+    s = series.astype(str).str.strip()
+    try:
+        return pd.to_datetime(s, format="mixed", errors="coerce")
+    except (ValueError, TypeError):
+        return pd.to_datetime(s, errors="coerce")
+
+
+def _merge_time_of_day(dates: pd.Series, raw_times: pd.Series) -> tuple[pd.Series, pd.Series]:
+    """Merge a separate clock-time column onto date-only timestamps, per row.
+
+    Returns (dates, merged_mask). A row whose time value does not parse keeps
+    its date-only value — a handful of bad times must not cost the whole
+    column's signal, and no row is ever dropped for having one.
+    """
+    parsed = _parse_time_of_day(raw_times)
+    merged_mask = parsed.notna() & dates.notna()
+    if not merged_mask.any():
+        return dates, merged_mask
+    offset = pd.to_timedelta(
+        parsed.dt.hour * 3600 + parsed.dt.minute * 60 + parsed.dt.second,
+        unit="s",
+    )
+    return dates.where(~merged_mask, dates.dt.normalize() + offset), merged_mask
+
+
+def _resolve_hour_of_day(dates: pd.Series, merged_mask: pd.Series) -> pd.Series:
+    """Hour of day per row as nullable Int64 — NA where there is no time signal.
+
+    Rows fed by a separate clock-time column are trusted directly. The rest are
+    judged at the *column* level: a date-only column parses to hour 0 for every
+    row, which is non-null but carries no signal, so the hour is only taken from
+    the date column when at least _MIN_NON_MIDNIGHT_FRACTION of its timestamps
+    sit off exact midnight. Once a column clears that bar, every row keeps its
+    real hour including genuine 00:xx sales — nulling those individually would
+    erase the midnight daypart for precisely the late-operating businesses that
+    depend on it.
+    """
+    hours = pd.Series(np.nan, index=dates.index, dtype="float64")
+    hours[merged_mask] = dates[merged_mask].dt.hour
+
+    rest = dates.notna() & ~merged_mask
+    if rest.any():
+        candidates = dates[rest]
+        non_midnight = (
+            (candidates.dt.hour != 0)
+            | (candidates.dt.minute != 0)
+            | (candidates.dt.second != 0)
+        )
+        if non_midnight.mean() >= _MIN_NON_MIDNIGHT_FRACTION:
+            hours[rest] = candidates.dt.hour
+    return hours.astype("Int64")
+
+
 def _detect_columns(df: pd.DataFrame) -> dict:
-    """Auto-detect columns for product, quantity, revenue/unit_price, date, location, cost, transaction_id."""
+    """Auto-detect columns for product, quantity, revenue/unit_price, date, time_of_day, location, cost, transaction_id."""
     product_col = _find_col(df, PRODUCT_SYNONYMS)
     if product_col is None:
         name_col = next((c for c in df.columns if c.strip().lower() == "name"), None)
@@ -130,6 +257,7 @@ def _detect_columns(df: pd.DataFrame) -> dict:
         "cost": _find_col(df, COST_CANDIDATES),
         "transaction_id": _find_col(df, TRANSACTION_CANDIDATES),
     }
+    mapping["time_of_day"] = _find_time_of_day_col(df, exclude=mapping["date"])
     if mapping["revenue"] and mapping["unit_price"] and mapping["revenue"] == mapping["unit_price"]:
         mapping["revenue"] = None
     if mapping["cost"] and mapping["cost"] in (mapping["revenue"], mapping["unit_price"]):
@@ -303,6 +431,22 @@ def _prepare_data_impl(raw_df: pd.DataFrame, mapping_override: dict | None = Non
         n_future_stripped = int(_future_mask.sum())
         if n_future_stripped > 0:
             needed["date"] = needed["date"].where(~_future_mask, pd.NaT)
+
+    # Time of day. POS exports from Square/Toast/Clover split the calendar date
+    # and the clock time into two columns; merge the second onto the first so
+    # daypart analysis has an hour to work with. Runs after the future-date
+    # strip above so that adding a time component can never change which rows
+    # that strip drops.
+    _merged_mask = pd.Series(False, index=raw_df.index)
+    tod_col = mapping.get("time_of_day")
+    if (
+        tod_col
+        and tod_col in raw_df.columns
+        and tod_col != date_col
+        and needed["date"].notna().any()
+    ):
+        needed["date"], _merged_mask = _merge_time_of_day(needed["date"], raw_df[tod_col])
+    needed["hour"] = _resolve_hour_of_day(needed["date"], _merged_mask)
 
     loc_col = mapping.get("location")
     if loc_col and loc_col in raw_df.columns:

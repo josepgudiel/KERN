@@ -41,11 +41,13 @@ export default function ActionCenterPage() {
     return `${currency}${n.toFixed(2)}`
   }
 
-  async function handleDismiss(recId: string) {
+  async function handleDismiss(recId: string, status: 'done' | 'not_relevant', reason?: string) {
     if (!sessionId) return
+    // Both statuses hide the card identically — only the recorded meaning differs.
     setDismissed(prev => { const next = new Set(Array.from(prev)); next.add(recId); return next })
+    const recType = data?.recommendations?.find(r => r.id === recId)?.rec_type
     try {
-      await dismissRecommendation(sessionId, recId)
+      await dismissRecommendation(sessionId, recId, status, reason, recType)
     } catch {/* optimistic update already applied */}
   }
 
@@ -156,8 +158,10 @@ export default function ActionCenterPage() {
                 ? <CheckCircle2 {...emptyIconProps} aria-hidden />
                 : <ListChecks {...emptyIconProps} aria-hidden />}
               title={dismissed.size > 0 ? 'All caught up' : 'Not enough data yet'}
+              /* Cards leave this list for two different reasons now, so the copy
+                 can't claim they were all acted on. */
               description={dismissed.size > 0
-                ? "Everything here is marked done. Upload a fresher export when you have one."
+                ? 'Nothing left to review — upload a fresher export when you have one.'
                 : 'This page needs at least 14 transactions before it can rank anything. Try a file covering a longer period.'}
             />
           )

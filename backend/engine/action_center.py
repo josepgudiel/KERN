@@ -5,8 +5,9 @@ import pandas as pd
 
 from .safety import _has_dates
 from .insights import _detect_overview_insights, _find_rising_stars, _find_declining_products
-from .pricing import _get_price_recommendations, _estimate_product_elasticity
+from .pricing import _get_price_recommendations, _usable_elasticity
 from .apriori import _compute_basket_rules
+from .margin import DEFAULT_ESTIMATED_MARGIN
 
 
 def _strip_md(s: str) -> str:
@@ -76,7 +77,7 @@ def _prescribe_low_activity(
         monthly_rev = p_rev / months
 
         # Derive discount % from elasticity — don't hardcode 20%
-        _e, _, _, _ = _estimate_product_elasticity(df, pname)
+        _e = _usable_elasticity(df, pname)
         if _e is not None:
             e_abs = abs(_e)
             if e_abs >= 1.2:
@@ -235,7 +236,12 @@ def _growth_actions(
         ]]
 
 
-def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$") -> dict:
+def _build_action_center(
+    df: pd.DataFrame,
+    product_clusters,
+    currency: str = "$",
+    gross_margin: float = DEFAULT_ESTIMATED_MARGIN,
+) -> dict:
     """Gather all analysis signals and rank by estimated dollar impact."""
     cur = currency
     has_dates = _has_dates(df)
@@ -276,12 +282,13 @@ def _build_action_center(df: pd.DataFrame, product_clusters, currency: str = "$"
 
     # 1. Price raise opportunities
     has_cost = "cost" in df.columns and df["cost"].notna().any()
-    gross_margin_fallback = 0.65
     price_recs = _get_price_recommendations(df, currency=cur)
     for rec in price_recs:
         if rec["action"] == "↑ Raise Price" and rec["product"] in prod_lookup.index:
             mq = prod_lookup.loc[rec["product"], "monthly_qty"]
-            margin_pct = rec.get("margin_pct") or gross_margin_fallback
+            # Per-product margin when pricing.py could derive one from cost data,
+            # otherwise the caller's resolved portfolio margin — not a local guess.
+            margin_pct = rec.get("margin_pct") or gross_margin
             revenue_gain = mq * (rec["suggested"] - rec["current"])
             impact = revenue_gain * margin_pct
             impact_low = impact * 0.75

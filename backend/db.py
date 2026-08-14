@@ -55,10 +55,22 @@ class Dismissal(Base):
     id = Column(String(36), primary_key=True)  # UUID
     session_id = Column(String(36), nullable=False, index=True)
     upload_id = Column(String(36), nullable=False, index=True)
-    rec_id = Column(String(255), nullable=False)  # e.g., "pricing_raise_product_1"
+    rec_id = Column(String(255), nullable=False)  # md5(rec_type + product)[:12]
     rec_type = Column(String(50), nullable=True)  # e.g., "pricing", "bundle", "declining"
     dismissed_at = Column(DateTime, default=datetime.utcnow, index=True)
     reason = Column(Text, nullable=True)  # User feedback (if provided)
+
+    # "done" | "not_relevant" | "legacy_unspecified".
+    #
+    # "legacy_unspecified" is backfill-only and is not accepted by the API. Rows
+    # written before the dismissal split came from a single button labelled "Mark
+    # as done" that conflated both meanings, so neither real status is true for
+    # them. Labelling them honestly as unknown keeps them excludable when the read
+    # path gets built, instead of silently inflating one bucket forever.
+    #
+    # server_default (not a Python-side default) so the DDL matches what the
+    # migration produces on already-deployed tables.
+    status = Column(String(20), nullable=False, server_default="legacy_unspecified")
 
 
 # ─── Migrations ─────────────────────────────────────────────────────────────
@@ -70,14 +82,24 @@ def _run_migrations(engine) -> None:
         "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS margin_source VARCHAR(20) DEFAULT 'estimated'",
         "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS has_cost_data BOOLEAN DEFAULT FALSE",
         "ALTER TABLE uploads ADD COLUMN IF NOT EXISTS cost_column_name VARCHAR(100)",
+        # Two steps, and the order matters: ADD COLUMN ... DEFAULT backfills every
+        # existing row, which is what makes the subsequent SET NOT NULL succeed.
+        # Reversing them would fail on any table that already has rows.
+        "ALTER TABLE dismissals ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'legacy_unspecified'",
+        "ALTER TABLE dismissals ALTER COLUMN status SET NOT NULL",
     ]
-    with engine.connect() as conn:
-        for stmt in migrations:
-            try:
+    # One transaction per statement. Every migration above this change used
+    # IF NOT EXISTS and so could never raise; SET NOT NULL can. In Postgres a
+    # failed statement aborts the surrounding transaction, so sharing one
+    # transaction would let a single failure silently discard the migrations
+    # that already succeeded alongside it.
+    for stmt in migrations:
+        try:
+            with engine.connect() as conn:
                 conn.execute(text(stmt))
-            except Exception as e:
-                logger.debug(f"Migration skipped (likely already applied): {e}")
-        conn.commit()
+                conn.commit()
+        except Exception as e:
+            logger.debug(f"Migration skipped (likely already applied): {e}")
 
 
 # ─── Connection Pool ────────────────────────────────────────────────────────

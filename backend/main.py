@@ -21,12 +21,16 @@ load_dotenv()
 from db import init_db, is_db_available, get_db_session, Upload, DBSession, Dismissal
 
 from engine.data_loader import prepare_data, _load_raw, _detect_columns
+from engine.margin import resolve_margin, DEFAULT_ESTIMATED_MARGIN
 from engine.clusters import _get_product_clusters
 from engine.insights import (
     _detect_overview_insights, _find_rising_stars,
     _find_declining_products, _derive_period_label,
 )
 from engine.action_center import _growth_actions
+from engine.flags import (
+    ENABLE_CLUSTER_ADVICE, ENABLE_GROWTH_ACTIONS, ENABLE_STAFFING_REC,
+)
 from engine.recommendations import build_recommendations
 from engine.forecast import compute_revenue_forecast, _per_product_forecast
 from engine.anomaly import detect_anomalies
@@ -220,21 +224,16 @@ async def upload(
 
     session_id = str(uuid.uuid4())
 
-    # Detect cost columns
-    _cost_keywords = ("cost", "cogs", "expense", "unit_cost", "cost_per_unit")
-    cost_cols = [c for c in df.columns if any(k in c.lower() for k in _cost_keywords)]
-    has_cost_data = len(cost_cols) > 0
-    cost_column_name = cost_cols[0] if cost_cols else None
+    columns_detected = _detect_columns(raw_df)
 
-    # Resolve margin
-    if margin is not None:
-        if not (0.05 <= margin <= 0.99):
-            raise HTTPException(status_code=400, detail="Margin must be between 5% and 99% (e.g., 0.40 for 40%).")
-        gross_margin = margin
-        margin_source = "provided"
-    else:
-        gross_margin = 0.65
-        margin_source = "estimated"
+    # Explicit margin > calculated from cost data > 0.65 estimate.
+    # Shared with /demo so the two endpoints cannot drift apart again.
+    try:
+        gross_margin, margin_source, has_cost_data, cost_column_name = resolve_margin(
+            df, raw_df, explicit_margin=margin, mapping=columns_detected
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     # Log upload to PostgreSQL for persistence + audit trail
     db_session = get_db_session()
@@ -269,7 +268,6 @@ async def upload(
         finally:
             db_session.close()
 
-    columns_detected = _detect_columns(raw_df)
     has_dates = _has_dates(df)
 
     # Detect currency from raw data
@@ -340,11 +338,21 @@ async def get_demo_data(dataset: str = "coffee_shop"):
             raise HTTPException(status_code=500, detail=f"Demo data preparation failed: {error}")
 
         session_id = str(uuid.uuid4())
+
+        # Same resolution path as /upload. Both demo datasets carry real
+        # per-product cost data, so this resolves to "calculated" rather than
+        # letting the session fall back to the 0.65 guess.
+        gross_margin, margin_source, has_cost_data, cost_column_name = resolve_margin(df, raw_df)
+
         manager.store_session(session_id, {
             "df": df,
             "raw_df": raw_df,
             "raw_cols": raw_df.columns.tolist(),
             "currency": "$",
+            "gross_margin": gross_margin,
+            "margin_source": margin_source,
+            "has_cost_data": has_cost_data,
+            "cost_column_name": cost_column_name,
             "filename": filename,
             "uploaded_at": pd.Timestamp.now().isoformat(),
             "last_accessed": pd.Timestamp.now().isoformat(),
@@ -366,6 +374,10 @@ async def get_demo_data(dataset: str = "coffee_shop"):
             "currency": "$",
             "filename": filename,
             "warning": None,
+            "gross_margin": gross_margin,
+            "margin_source": margin_source,
+            "has_cost_data": has_cost_data,
+            "cost_column_name": cost_column_name,
         }
     except HTTPException:
         raise
@@ -434,7 +446,7 @@ def action_center(session_id: str = Query(...)):
     health_brief = _generate_health_brief(df, product_clusters, currency=cur)
 
     # Rebuilt recommendation engine — statistical foundation
-    margin = float(session.get("gross_margin", 0.65))
+    margin = float(session.get("gross_margin", DEFAULT_ESTIMATED_MARGIN))
     margin_source = session.get("margin_source", "estimated")
     recommendations = build_recommendations(df, currency=cur, margin=margin, margin_source=margin_source)
 
@@ -462,12 +474,17 @@ def whats_selling(session_id: str = Query(...)):
 
     clusters_out = []
     if product_clusters is not None:
+        # Gated off: these four strings are identical for every business that
+        # uploads a file, so they read as advice while carrying no information
+        # about this owner's data. See engine/flags.py. The clusters themselves
+        # (labels, products, averages) still ship — only the advice line is held
+        # back, and the frontend drops the action row when it comes back empty.
         advice = {
             "Stars": "Protect and promote these — they carry your revenue.",
             "Cash Cows": "Try bundling with a pricier item to lift order value.",
             "Hidden Gems": "Promote these — try a daily special or staff recommendation.",
             "Low Activity": "Review before cutting — check availability and visibility.",
-        }
+        } if ENABLE_CLUSTER_ADVICE else {}
         for cat in ["Stars", "Cash Cows", "Hidden Gems", "Low Activity"]:
             sub = product_clusters[product_clusters["category"] == cat]
             if sub.empty:
@@ -565,8 +582,13 @@ def when_to_staff(session_id: str = Query(...)):
     peak_day = by_day["total_revenue"].idxmax() if not by_day.empty else None
     slowest_day = by_day["total_revenue"].idxmin() if not by_day.empty else None
 
+    # Gated off: this only interpolated two day names into a fixed sentence —
+    # no headcount, no hours, no dollar figure — so it restated the peak/slowest
+    # tiles as though it were a recommendation. See engine/flags.py. The peak and
+    # slowest days themselves still ship; the frontend explains the absence
+    # rather than claiming the days looked too alike to call.
     staffing_rec = None
-    if peak_day and slowest_day and peak_day != slowest_day:
+    if ENABLE_STAFFING_REC and peak_day and slowest_day and peak_day != slowest_day:
         staffing_rec = (
             f"{peak_day} is your peak — schedule your strongest staff. "
             f"{slowest_day} is your slowest — consider reduced hours or a targeted promotion."
@@ -613,20 +635,25 @@ def forecast(session_id: str = Query(...), weeks: int = Query(default=4, ge=1, l
         "growth_actions": [],
     }
 
-    # Growth actions
-    insights = _detect_overview_insights(df, currency=cur)
-    avg_daily = result.get("avg_daily", 0)
-    growth_pct = abs(result.get("slope_pct", 0))
-    wow = insights.get("wow_pct")
-    actions = _growth_actions(
-        trend=result["trend"],
-        df=df,
-        growth_pct=growth_pct,
-        avg_daily=avg_daily,
-        forecast_weeks=weeks,
-        wow=wow,
-        currency=cur,
-    )
+    # Growth actions — gated off. The copy is selected by trend direction, not
+    # derived from this business's data, so four cards of generic marketing
+    # advice sat under a forecast built from real numbers. See engine/flags.py.
+    # `_growth_actions` is left intact for when the copy is rebuilt.
+    actions: list[str] = []
+    if ENABLE_GROWTH_ACTIONS:
+        insights = _detect_overview_insights(df, currency=cur)
+        avg_daily = result.get("avg_daily", 0)
+        growth_pct = abs(result.get("slope_pct", 0))
+        wow = insights.get("wow_pct")
+        actions = _growth_actions(
+            trend=result["trend"],
+            df=df,
+            growth_pct=growth_pct,
+            avg_daily=avg_daily,
+            forecast_weeks=weeks,
+            wow=wow,
+            currency=cur,
+        )
 
     # Update cached forecast with growth actions
     session["cached_forecast"]["growth_actions"] = actions
@@ -828,6 +855,9 @@ def data_summary(session_id: str = Query(...)):
 
 @app.post("/dismiss")
 def dismiss_recommendation(req: DismissRequest):
+    # Both "done" and "not_relevant" hide the card — the session set stays a plain
+    # set of IDs and is the only thing the client filters on. The status split
+    # changes what gets recorded, not what gets shown.
     session = _get_session(req.session_id)
     if "dismissed_recs" not in session:
         session["dismissed_recs"] = set()
@@ -841,13 +871,21 @@ def dismiss_recommendation(req: DismissRequest):
             dismissal = Dismissal(
                 id=str(uuid.uuid4()),
                 session_id=req.session_id,
-                upload_id=req.session_id,  # In this case, upload_id == session_id
+                # NOTE: not a real upload_id — session_id is being written into the
+                # upload_id column. Pre-existing, left alone here, but it means this
+                # column cannot be joined against uploads.id when the read path for
+                # this data eventually gets built.
+                upload_id=req.session_id,
                 rec_id=req.rec_id,
-                rec_type=req.rec_id.split("_")[0] if "_" in req.rec_id else None,
+                # Sent by the client. It used to be parsed out of rec_id, but rec_id
+                # is an md5 digest with no separator, so that always yielded None.
+                rec_type=req.rec_type,
+                status=req.status,
+                reason=req.reason,
             )
             db_session.add(dismissal)
             db_session.commit()
-            logger.info(f"Logged dismissal {req.rec_id} to PostgreSQL")
+            logger.info(f"Logged dismissal {req.rec_id} ({req.status}) to PostgreSQL")
         except Exception as e:
             logger.warning(f"Failed to log dismissal to DB: {e}")
             db_session.rollback()

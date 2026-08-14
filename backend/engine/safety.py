@@ -23,10 +23,30 @@ _DEFAULT_ELASTICITY  = 0.65
 # Minimum transactions per product in each period for period-comparison noise filtering.
 _MIN_PRODUCT_TXN_FOR_PERIOD = 3
 
+# Share of rows that must carry an hour-of-day before daypart analysis is allowed.
+# Half, because dayparts split the day into ~4 buckets and missing times are
+# rarely random — they cluster by channel or register (online orders, manual
+# entries, a second POS). Below this the daypart mix is biased rather than
+# merely noisy, which is worse than no daypart at all because it still looks
+# authoritative. Per-analysis minimums belong on top of this, not inside it.
+_MIN_HOUR_COVERAGE = 0.5
+
 
 def _has_dates(df: pd.DataFrame) -> bool:
     """True if the date column is datetime-typed AND has at least one non-null value."""
     return pd.api.types.is_datetime64_any_dtype(df["date"]) and df["date"].notna().any()
+
+
+def _has_hour_data(df: pd.DataFrame) -> bool:
+    """True if enough rows carry a real hour-of-day to support daypart analysis.
+
+    Coverage-gated, not existence-gated: a file where a handful of stray rows
+    happen to have times must not claim full daypart coverage. Missing on
+    sessions stored before the hour column existed, hence the column check.
+    """
+    if "hour" not in df.columns or len(df) == 0:
+        return False
+    return float(df["hour"].notna().mean()) >= _MIN_HOUR_COVERAGE
 
 
 def _build_data_confidence_badge(df: pd.DataFrame) -> str:

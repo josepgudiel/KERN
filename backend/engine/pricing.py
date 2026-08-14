@@ -1,175 +1,30 @@
-"""OLS price elasticity and price recommendations — extracted from app.py."""
+"""Price Intelligence recommendations — browse-all, percentile-based selection.
+
+The elasticity estimate and the suggested percentage both come from
+``pricing_core``; this module owns only *which* products get a recommendation
+and how it is worded. See ``pricing_core`` for the sign convention.
+"""
 from __future__ import annotations
 
-import numpy as np
 import pandas as pd
 
 from .safety import (
     _has_dates, _QUANTILE_LOW, _QUANTILE_HIGH, _DEFAULT_ELASTICITY,
 )
+from .pricing_core import estimate_elasticity, elasticity_to_price_delta
 
 
-def _estimate_product_elasticity(df: pd.DataFrame, product: str) -> tuple:
-    """Estimate price elasticity using daily-aggregated price/volume data.
+def _usable_elasticity(df: pd.DataFrame, product: str) -> float | None:
+    """Canonical elasticity magnitude, or None when it isn't trustworthy.
 
-    Returns: (elasticity, low_95, high_95, note)
-    Returns (None, None, None, reason) if data is insufficient.
+    Collapses pricing_core's valid/is_significant pair back to the single
+    "None means we couldn't measure it" signal this module's messaging is
+    built around.
     """
-    prod_df = df[(df["product"] == product) & (df["quantity"] > 0)].copy()
-    prod_df["unit_price"] = prod_df["revenue"] / prod_df["quantity"]
-
-    n_raw = len(prod_df)
-    if n_raw < 10:
-        return None, None, None, f"insufficient data ({n_raw} transactions — need 10+)"
-
-    if _has_dates(prod_df):
-        prod_df["date_only"] = prod_df["date"].dt.date
-        daily_agg = (
-            prod_df.groupby("date_only")
-            .agg(avg_price=("unit_price", "mean"), total_qty=("quantity", "sum"))
-            .reset_index()
-        )
-        n_days = len(daily_agg)
-        if n_days < 5:
-            return None, None, None, f"insufficient daily observations ({n_days} days — need 5+)"
-        price_series = daily_agg["avg_price"]
-        qty_series   = daily_agg["total_qty"]
-    else:
-        price_series = prod_df["unit_price"]
-        qty_series   = prod_df["quantity"]
-        n_days = n_raw
-
-    price_mean = float(price_series.mean())
-    price_cv   = float(price_series.std()) / (price_mean + 1e-9)
-    if price_cv < 0.03:
-        return None, None, None, (
-            "not enough price variation in the data to estimate reliably — "
-            "prices appear fixed. Run a controlled price experiment to get real demand data."
-        )
-
-    try:
-        n_bins = min(10, n_days // 3)
-        if n_bins < 3:
-            return None, None, None, f"too few daily observations for binning ({n_days} days)"
-        agg_df = pd.DataFrame({"price": price_series.values, "qty": qty_series.values})
-        agg_df["price_bin"] = pd.qcut(agg_df["price"], q=n_bins, duplicates="drop")
-        binned = (
-            agg_df.groupby("price_bin", observed=True)
-            .agg(avg_price=("price", "mean"), avg_qty=("qty", "mean"), n=("qty", "count"))
-            .reset_index()
-        )
-        binned = binned[binned["n"] >= 2]
-    except Exception as e:
-        return None, None, None, f"price binning failed: {e}"
-
-    if len(binned) < 5:
-        return None, None, None, (
-            f"insufficient price bins after filtering ({len(binned)} retained — need 5+). "
-            f"More price variation or a longer history is required."
-        )
-
-    log_p = np.log(binned["avg_price"].clip(lower=0.01).values)
-    log_q = np.log(binned["avg_qty"].clip(lower=0.01).values)
-    n_pts = len(log_p)
-
-    X = np.column_stack([np.ones(n_pts), log_p])
-    try:
-        coeffs, _, _, _ = np.linalg.lstsq(X, log_q, rcond=None)
-    except Exception as e:
-        return None, None, None, f"regression failed: {e}"
-
-    b = coeffs[1]
-    fitted = X @ coeffs
-    resid  = log_q - fitted
-    dof    = n_pts - 2
-    if dof < 3:
-        return None, None, None, (
-            "not enough data points to estimate reliably — "
-            "Collect more pricing variation before estimating elasticity."
-        )
-
-    s2 = (resid ** 2).sum() / dof
-    try:
-        Xp_inv = np.linalg.inv(X.T @ X)
-    except np.linalg.LinAlgError as e:
-        return None, None, None, f"singular matrix: {e}"
-    se_b = float(np.sqrt(max(s2 * Xp_inv[1, 1], 1e-9)))
-
-    ss_tot = ((log_q - log_q.mean()) ** 2).sum()
-    r2_raw = 1 - (resid ** 2).sum() / (ss_tot + 1e-9)
-    r2     = float(np.clip(r2_raw, 0, 1)) if np.isfinite(r2_raw) else 0.0
-    t_stat = abs(b) / se_b if se_b > 0 else 0
-
-    t_crit = max(1.8, 1.645 + 2.0 / dof)
-    if t_stat < t_crit or r2 < 0.20:
-        return None, None, None, (
-            "the relationship between price and sales volume is too weak to estimate reliably — "
-            "price variation may be confounded by promotions or seasonality. "
-            "A controlled price experiment would provide cleaner identification."
-        )
-
-    raw_elasticity = float(abs(b))
-    _ELASTICITY_CAP = 2.5
-    _CI_CAP = 3.5
-    elasticity = float(np.clip(raw_elasticity, 0.05, _ELASTICITY_CAP))
-    low_95  = float(np.clip(abs(b) - 2 * se_b, 0.05, _CI_CAP))
-    high_95 = float(np.clip(abs(b) + 2 * se_b, 0.05, _CI_CAP))
-
-    fit_quality = "strong" if r2 > 0.5 and t_stat > 3 else ("moderate" if r2 > 0.25 else "weak")
-    cap_note = ""
-    if raw_elasticity > _ELASTICITY_CAP:
-        cap_note = f" Raw estimate ({raw_elasticity:.2f}) capped at {_ELASTICITY_CAP} — treat as directional only."
-        fit_quality = "moderate"
-    note = (
-        f"data-estimated from {n_raw} transactions / {n_days} daily observations, "
-        f"Based on {n_pts} price points — {fit_quality} confidence{cap_note}"
-    )
-    return elasticity, low_95, high_95, note
-
-
-def _elasticity_to_raise_pct(elasticity: float | None) -> tuple[float, str]:
-    """Derive price increase % and label from elasticity magnitude.
-
-    Returns (pct_as_decimal, human_label).
-    Falls back to a conservative 3% when elasticity is unavailable.
-    """
-    if elasticity is None:
-        return 0.03, (
-            "3% (conservative starting point — not enough price variation in your data "
-            "to measure demand response; run a 2-week test before committing)"
-        )
-    e = abs(elasticity)
-    if e < 0.5:
-        return 0.08, f"8% — demand is very inelastic (elasticity {e:.2f}): customers barely react to price changes"
-    elif e < 0.7:
-        return 0.06, f"6% — demand is moderately inelastic (elasticity {e:.2f})"
-    elif e < 1.0:
-        return 0.04, f"4% — demand has moderate price sensitivity (elasticity {e:.2f}): test cautiously"
-    else:
-        return 0.02, f"2% — demand is price-sensitive (elasticity {e:.2f}): a small test only"
-
-
-def _elasticity_to_lower_pct(elasticity: float | None) -> tuple[float, str]:
-    """Derive price reduction % and label from elasticity magnitude.
-
-    Returns (pct_as_decimal, human_label).
-    For inelastic products a price cut won't help — returns 0.05 with a caveat.
-    """
-    if elasticity is None:
-        return 0.05, (
-            "5% (default — no elasticity data available; a price cut may not be the "
-            "right lever if customers aren't price-sensitive)"
-        )
-    e = abs(elasticity)
-    if e >= 1.2:
-        return 0.10, f"10% — demand is elastic (elasticity {e:.2f}): a meaningful cut is needed to move volume"
-    elif e >= 0.7:
-        return 0.05, f"5% — moderate elasticity (elasticity {e:.2f}): worth a small test"
-    else:
-        return 0.05, (
-            f"5% test only — demand is inelastic (elasticity {e:.2f}): "
-            "a price cut likely won't drive volume; investigate visibility or product-market fit first"
-        )
+    res = estimate_elasticity(df, product)
+    if res["valid"] and res["is_significant"]:
+        return res["elasticity"]
+    return None
 
 
 def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
@@ -216,9 +71,8 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
         n_txn = int(row["transactions"])
 
         if qty >= qty_high_threshold and price <= price_low_threshold and n_txn >= MIN_TXN_FOR_RAISE:
-            _e, _, _, _note = _estimate_product_elasticity(df, p)
-            _e_used = _e if _e is not None else None
-            raise_pct, raise_pct_label = _elasticity_to_raise_pct(_e_used)
+            _e_used = _usable_elasticity(df, p)
+            raise_pct, raise_pct_label = elasticity_to_price_delta(_e_used, "raise")
             sug = round(price * (1 + raise_pct), 2)
 
             # Gate confidence on whether elasticity could be estimated
@@ -273,8 +127,8 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
             })
 
         elif price >= price_high_threshold and qty <= qty_low_threshold and n_txn >= MIN_TXN_FOR_LOWER:
-            _e_lower, _, _, _ = _estimate_product_elasticity(df, p)
-            lower_pct, lower_pct_label = _elasticity_to_lower_pct(_e_lower)
+            _e_lower = _usable_elasticity(df, p)
+            lower_pct, lower_pct_label = elasticity_to_price_delta(_e_lower, "lower")
             sug = round(price * (1 - lower_pct), 2)
             reason = (
                 f"Priced in the top third of your products but selling in the bottom third "
@@ -297,7 +151,7 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
         elif has_cost and price >= price_high_threshold and row["margin"] >= margin_high_threshold and n_txn >= MIN_TXN_FOR_MAINTAIN:
             recs.append({
                 "product": p, "action": "✓ Maintain",
-                "current": price, "suggested": price,
+                "current": price, "suggested": round(price, 2),
                 "n_txn": n_txn,
                 "reason": (
                     f"Strong margin ({row['margin_pct']:.0%}) at a competitive price point. "
@@ -311,7 +165,7 @@ def _get_price_recommendations(df: pd.DataFrame, currency: str = "$") -> list:
         elif not has_cost and price >= price_high_threshold and qty >= qty_high_threshold and n_txn >= MIN_TXN_FOR_MAINTAIN:
             recs.append({
                 "product": p, "action": "✓ Maintain",
-                "current": price, "suggested": price,
+                "current": price, "suggested": round(price, 2),
                 "n_txn": n_txn,
                 "reason": (
                     f"High price and high volume ({int(qty)} units) — a strong revenue signal. "

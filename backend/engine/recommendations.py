@@ -19,6 +19,7 @@ import pandas as pd
 from .safety import _has_dates
 from .apriori import _compute_basket_rules
 from .data_utils import get_product_date_range, build_proof
+from .pricing_core import estimate_elasticity, _elasticity_test_price
 
 logger = logging.getLogger(__name__)
 
@@ -120,42 +121,6 @@ def relative_standing(product_value: float, all_product_values: list[float]) -> 
         "z_score": round(z_score, 2),
         "is_outlier": abs(z_score) > 1.5,
         "direction": "high" if z_score > 0 else "low",
-    }
-
-
-def compute_elasticity(prices: list[float], quantities: list[float]) -> dict:
-    """Log-log OLS regression for price elasticity."""
-    if len(prices) < 20 or len(set(round(p, 2) for p in prices)) < 3:
-        return {"valid": False}
-
-    prices_arr = np.array(prices, dtype=float)
-    quantities_arr = np.array(quantities, dtype=float)
-
-    # Filter out zeros for log
-    mask = (prices_arr > 0) & (quantities_arr > 0)
-    if mask.sum() < 20:
-        return {"valid": False}
-
-    log_p = np.log(prices_arr[mask])
-    log_q = np.log(quantities_arr[mask])
-    slope, intercept, r_squared, p_value = _linregress(log_p, log_q)
-
-    return {
-        "valid": True,
-        "elasticity": round(slope, 3),
-        "r_squared": round(r_squared, 3),
-        "p_value": round(p_value, 4),
-        "is_significant": p_value < 0.05 and r_squared >= 0.15,
-        "plain": (
-            "customers barely react to price changes on this"
-            if slope > -0.3
-            else "customers are slightly price-aware but not much"
-            if slope > -0.7
-            else "customers notice price changes on this one"
-            if slope > -1.0
-            else "this item is price-sensitive"
-        ),
-        "price_tolerant": slope > -0.7,
     }
 
 
@@ -347,7 +312,7 @@ def _build_pricing_rec(df: pd.DataFrame, product: str, all_avg_prices: list[floa
 
     # ── Path A: Elasticity analysis (3+ price points) ────────────────────────
     if pp["n_price_points"] >= 3:
-        elasticity = compute_elasticity(pp["prices"], pp["quantities"])
+        elasticity = estimate_elasticity(df, product)
         if not elasticity["valid"] or not elasticity["is_significant"] or not elasticity["price_tolerant"]:
             return None
 
@@ -355,14 +320,10 @@ def _build_pricing_rec(df: pd.DataFrame, product: str, all_avg_prices: list[floa
         if not standing["is_outlier"] or standing["direction"] != "low":
             return None
 
-        e = elasticity["elasticity"]
-        if e >= -0.01:  # near zero elasticity, cap the formula
-            suggested_price = current_avg_price * 1.25
-        else:
-            suggested_price = current_avg_price * (e / (e + 1))
-        increase = min(suggested_price - current_avg_price, current_avg_price * 0.25, 2.00)
-        increase = max(increase, 0.25)
-        suggested_price = round(current_avg_price + increase, 2)
+        # _elasticity_test_price takes the signed slope — see pricing_core's docstring.
+        suggested_price, increase = _elasticity_test_price(
+            current_avg_price, elasticity["slope"]
+        )
 
         weekly_units = _get_weekly_units(df, product)
         avg_weekly_units = np.mean(weekly_units) if weekly_units else 0
@@ -401,9 +362,11 @@ def _build_pricing_rec(df: pd.DataFrame, product: str, all_avg_prices: list[floa
             "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
             "_impact_estimate": round(impact, 2),
             "_statistical_detail": {
-                "elasticity": elasticity["elasticity"],
-                "r_squared": elasticity["r_squared"],
-                "p_value": elasticity["p_value"],
+                # Signed, matching this field's long-standing display convention.
+                # Same magnitude as the value Price Intelligence shows.
+                "elasticity": round(elasticity["slope"], 3),
+                "r_squared": round(elasticity["r_squared"], 3),
+                "p_value": round(elasticity["p_value"], 4),
             },
         }
 
@@ -817,7 +780,7 @@ def _build_rising_rec(
     # Secondary signal detection
     current_avg_price = _product_avg_price(df, product)
     pp = _product_price_points(df, product)
-    elasticity = compute_elasticity(pp["prices"], pp["quantities"]) if pp["n_price_points"] >= 3 else {"valid": False}
+    elasticity = estimate_elasticity(df, product) if pp["n_price_points"] >= 3 else {"valid": False}
 
     # Price percentile
     price_percentile = relative_standing(current_avg_price, all_avg_prices)["percentile"]
@@ -936,7 +899,9 @@ def _build_rising_rec(
 # ─── REC 5: DEAD PRODUCT ────────────────────────────────────────────────────
 
 
-def _build_dead_product_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list[dict]:
+def _build_dead_product_recs(
+    df: pd.DataFrame, min_impact: float = 50.0, currency: str = "$"
+) -> list[dict]:
     """Detect products that were selling and then stopped."""
     if not _has_dates(df):
         return []
@@ -1005,6 +970,13 @@ def _build_dead_product_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list
 
         n_txns = len(df[df["product"] == item["product"]])
 
+        # Same escalation the declining rec uses: visibility first because it costs
+        # nothing, then a bounded price test. Stated as the next action rather than
+        # as three questions — a rec that only asks what the owner should check
+        # hands the work back to them.
+        price_cut_5pct = round(avg_price * 0.05, 2)
+        price_new = round(avg_price * 0.95, 2)
+
         recs.append({
             "id": _rec_id("dead_product", item["product"]),
             "rec_type": "dead_product",
@@ -1016,8 +988,11 @@ def _build_dead_product_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list
                 f"It sold {item['sales_prev']} times in the 30 days before last month. "
                 f"It's sold {item['sales_last']} times since. That's not a slow week — "
                 f"something changed. Last sale was {item['days_since']} days ago. "
-                f"Check if it's still visible, still stocked, and still priced correctly "
-                f"before writing it off."
+                f"Start with visibility, the cheapest thing that could be wrong "
+                f"({currency}0, 15 minutes): move it back to a spot customers pass and "
+                f"post it once today. If a week of that moves nothing, test "
+                f"{currency}{price_cut_5pct:.2f} off ({currency}{avg_price:.2f} → "
+                f"{currency}{price_new:.2f}) for 14 days before writing it off."
             ),
             "see_why": (
                 f"Previous 30 days: {item['sales_prev']} sales. "
@@ -1058,6 +1033,10 @@ def _build_dow_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list[dict]:
     df_copy = df.copy()
     df_copy["dow"] = df_copy["date"].dt.dayofweek
     df_copy["week"] = df_copy["date"].dt.to_period("W").dt.start_time
+    # Calendar day, so a rate can be per day-of-week *occurrence* rather than per
+    # transaction row. Without it, a day with many small tickets looks quiet and a
+    # day with few large ones looks busy.
+    df_copy["day"] = df_copy["date"].dt.normalize()
 
     products = df["product"].unique()
     all_multipliers = []
@@ -1068,29 +1047,39 @@ def _build_dow_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list[dict]:
         if len(prod_df) < 20:
             continue
 
-        dow_rev = prod_df.groupby("dow")["revenue"].sum()
-        dow_count = prod_df.groupby("dow")["revenue"].count()
+        dow_qty = prod_df.groupby("dow")["quantity"].sum()
+        dow_days = prod_df.groupby("dow")["day"].nunique()
 
-        if len(dow_rev) < 5:  # need sales on most days
+        if len(dow_qty) < 5:  # need sales on most days
             continue
 
-        # Average revenue per day occurrence
-        dow_avg = dow_rev / dow_count.clip(lower=1)
-        peak_dow = int(dow_avg.idxmax())
-        peak_dow_avg = float(dow_avg[peak_dow])
-        other_days = dow_avg.drop(peak_dow)
-        mean_other_days_avg = float(other_days.mean()) if len(other_days) > 0 else 0
+        # Units moved on a typical Monday, Tuesday, ... — the rec tells an owner
+        # how much to put out, so the whole comparison is volume per day, not
+        # revenue per sale. (Files with no quantity column carry quantity = 1 per
+        # row, in which case a "unit" is one sale — still a volume statement.)
+        units_per_day = dow_qty / dow_days.clip(lower=1)
+        peak_dow = int(units_per_day.idxmax())
+        peak_units_per_day = float(units_per_day[peak_dow])
+        other_days = units_per_day.drop(peak_dow)
+        mean_other_units_per_day = float(other_days.mean()) if len(other_days) > 0 else 0
 
-        if mean_other_days_avg <= 0:
+        if mean_other_units_per_day <= 0:
             continue
 
-        multiplier = peak_dow_avg / mean_other_days_avg
+        multiplier = peak_units_per_day / mean_other_units_per_day
         if multiplier < 2.5:
             continue
 
-        # Consistency check: how many weeks does the peak day beat the average?
-        weeks_with_peak = prod_df[prod_df["dow"] == peak_dow].groupby("week")["revenue"].sum()
-        weeks_others = prod_df[prod_df["dow"] != peak_dow].groupby("week")["revenue"].mean()
+        # Consistency check: in how many weeks does the peak day out-sell a normal
+        # day of that week? Both sides are daily unit totals — comparing the peak
+        # day's total against a per-transaction average made the peak day win by
+        # construction on any product that sells more than once a day.
+        weeks_with_peak = prod_df[prod_df["dow"] == peak_dow].groupby("week")["quantity"].sum()
+        weeks_others = (
+            prod_df[prod_df["dow"] != peak_dow]
+            .groupby(["week", "day"])["quantity"].sum()
+            .groupby("week").mean()
+        )
         common_weeks = weeks_with_peak.index.intersection(weeks_others.index)
         if len(common_weeks) < 4:
             continue
@@ -1102,14 +1091,31 @@ def _build_dow_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list[dict]:
         if consistency < 0.70:
             continue
 
+        # The two numbers the owner acts on: how much extra to put out on the peak
+        # day, and how much to hold back on the quietest one — both stated against
+        # a normal day, which is what they'd otherwise prep for.
+        slowest_dow = int(units_per_day.idxmin())
+        slowest_units_per_day = float(units_per_day[slowest_dow])
+        extra_on_peak = peak_units_per_day - mean_other_units_per_day
+        fewer_on_slowest = mean_other_units_per_day - slowest_units_per_day
+
+        # A multiplier can clear 2.5x on volumes too small to round to a whole
+        # unit. "Put out 0 more" is not a recommendation, so the rec doesn't fire.
+        if round(extra_on_peak) < 1:
+            continue
+
         all_multipliers.append(multiplier)
         product_dow_data.append({
             "product": product,
             "peak_dow": peak_dow,
             "peak_day_name": day_names[peak_dow],
             "multiplier": round(multiplier, 1),
-            "peak_dow_avg": round(peak_dow_avg, 2),
-            "mean_other_days_avg": round(mean_other_days_avg, 2),
+            "peak_units_per_day": round(peak_units_per_day, 1),
+            "mean_other_units_per_day": round(mean_other_units_per_day, 1),
+            "peak_day_count": int(dow_days[peak_dow]),
+            "slowest_day_name": day_names[slowest_dow],
+            "extra_on_peak": int(round(extra_on_peak)),
+            "fewer_on_slowest": int(round(fewer_on_slowest)),
             "consistency_pct": round(consistency * 100, 0),
             "n_weeks": int(n_weeks),
         })
@@ -1137,18 +1143,25 @@ def _build_dow_recs(df: pd.DataFrame, min_impact: float = 50.0) -> list[dict]:
             "urgency_label": "Worth doing soon",
             "urgency_score": 2,
             "title": (
-                f"{item['product']} sells {item['multiplier']}x more on "
-                f"{item['peak_day_name']} — are you ready for it?"
+                f"Put out {item['extra_on_peak']} more {item['product']} every "
+                f"{item['peak_day_name']}"
             ),
             "body": (
-                f"{item['product']} consistently outperforms on {item['peak_day_name']}s — "
-                f"{item['multiplier']}x your average for the rest of the week, and it's been "
-                f"doing this for {item['n_weeks']} weeks. Make sure it's fully stocked and "
-                f"front-of-mind every {item['peak_day_name']}."
+                f"{item['product']} moves {item['peak_units_per_day']:.0f} on a typical "
+                f"{item['peak_day_name']} against {item['mean_other_units_per_day']:.0f} on a "
+                f"normal day — {item['multiplier']}x, and it has held for {item['n_weeks']} weeks. "
+                f"Prepare {item['extra_on_peak']} extra on {item['peak_day_name']}"
+                + (
+                    f" and {item['fewer_on_slowest']} fewer on {item['slowest_day_name']}, "
+                    f"your quietest day for it."
+                    if item["fewer_on_slowest"] >= 1
+                    else "."
+                )
             ),
             "see_why": (
-                f"Average on {item['peak_day_name']}: {item['peak_dow_avg']} units. "
-                f"Average other days: {item['mean_other_days_avg']} units. "
+                f"{item['peak_day_name']}s: {item['peak_units_per_day']} units per day across "
+                f"{item['peak_day_count']} of them. "
+                f"Other days: {item['mean_other_units_per_day']} units per day. "
                 f"Pattern held in {int(item['consistency_pct'])}% of "
                 f"{item['peak_day_name']}s over {item['n_weeks']} weeks."
             ),
@@ -1261,7 +1274,9 @@ def build_recommendations(
     Args:
         margin: Gross margin as decimal (0.65 = 65%). Applied to non-pricing
                 impact estimates to convert revenue impact to profit impact.
-        margin_source: "estimated" or "provided" — shown on the UI.
+        margin_source: How `margin` was resolved — "provided" (entered at
+                upload), "calculated" (derived from the file's cost data), or
+                "estimated" (the default fallback). Shown on the UI.
     """
     all_recs: list[dict] = []
 
@@ -1296,7 +1311,7 @@ def build_recommendations(
             all_recs.append(rec)
 
     # REC 5: Dead Product
-    dead_recs = _build_dead_product_recs(df, min_impact=min_impact)
+    dead_recs = _build_dead_product_recs(df, min_impact=min_impact, currency=currency)
     all_recs.extend(dead_recs)
 
     # REC 6: Day-of-Week Opportunity
